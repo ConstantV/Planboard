@@ -109,6 +109,9 @@ The current architecture generalizes the transitional `Item` and `Client` models
 
 See [`wensen.md`](wensen.md) for the original scenarios and [`docs/development-plan.md`](docs/development-plan.md) for their phased implementation.
 
+See the Dutch [`Planboard gebruikershandleiding`](docs/gebruikershandleiding.md) for a detailed
+configuration guide, practical salon/rental/workshop examples, and PDF-ready screen illustrations.
+
 The source project plan lives in `MyVault/01. Projects/Planboard/Planboard.md`.
 
 ## Delivery plan
