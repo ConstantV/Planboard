@@ -4,7 +4,7 @@
 
 This plan turns the product roadmap into small, testable delivery steps. Each step produces a usable increment, is implemented completely, and passes its verification gate before work starts on the next step.
 
-The MVP is complete when a user can maintain categorized items and clients, create and manage bookings, prevent double-bookings, reschedule bookings safely in the calendar, filter the planning data, and switch between calendar and list views without losing the active filters.
+The MVP is complete when an administrator can configure planning-entity types and fields, a user can maintain categorized entities, Bookings can connect multiple role-based entities, exclusive resources cannot be double-booked, and calendar/list views share filters and configurable colors.
 
 ## Working agreement
 
@@ -51,6 +51,19 @@ Additional rules:
 - Every database schema change has an upgrade and downgrade migration test.
 - Dates and times are sent through the API as timezone-aware ISO 8601 values.
 
+## Product model decisions after step 2
+
+The requirements in `wensen.md` broaden Planboard from a fixed Item + Client scheduler into a configurable planning system. Before CRUD work continues, step 3 must validate and migrate toward these concepts:
+
+- `EntityType`: an administrator-defined kind such as Client, Employee, Station, Rental Item, Vehicle, Valve, or Workbench.
+- `Entity`: one concrete person or object with stable core fields and validated custom values.
+- `FieldDefinition`: an EntityType-specific field definition with datatype, required, searchable, filterable, and display-order settings.
+- `BookingParticipant`: a role-based link from a Booking to one or more Entities.
+- `exclusive`: a role/type setting that determines whether overlap protection applies to an Entity.
+- Configurable calendar colors with precedence: Entity, then category, then EntityType, then the application default.
+
+Custom values use a hybrid approach: definitions and query-critical core fields remain relational; flexible values may use validated JSON. Step 3 must prove filtering and migration behaviour in SQLite and document a PostgreSQL-compatible path before accepting this choice. Identity-document fields are not part of the default model and require an explicit privacy/security decision.
+
 ## Progress overview
 
 | Step | Deliverable | Status | Test evidence | Commit |
@@ -58,14 +71,14 @@ Additional rules:
 | 0 | Reproducible local environment | Complete | Backend check; frontend lint/build; live HTTP checks | `7831084` |
 | 1 | Test infrastructure and CI-ready quality gates | Complete | Backend: 1 test; frontend: 4 tests; both full checks pass | `7831084` |
 | 2 | Database migrations and validated domain model | Complete | Backend: Ruff + 15 tests + Alembic drift check; frontend: lint + 4 tests + build; manual domain smoke | `cffb0d5` |
-| 3 | Item management | Planned | — | — |
-| 4 | Client management | Planned | — | — |
-| 5 | Booking API and double-booking protection | Planned | — | — |
+| 3 | Configurable entity model and admin contract | In progress | — | — |
+| 4 | Entity and category management API | Planned | — | — |
+| 5 | Multi-entity Booking API and conflict protection | Planned | — | — |
 | 6 | Frontend application shell and API integration | Planned | — | — |
-| 7 | Item and client user interface | Planned | — | — |
+| 7 | Entity and configuration user interface | Planned | — | — |
 | 8 | Calendar booking workflow | Planned | — | — |
 | 9 | Drag-and-drop rescheduling and conflict recovery | Planned | — | — |
-| 10 | Availability, shared filtering, list view, and operational quality | Planned | — | — |
+| 10 | Availability, shared filtering, colors, list view, and operational quality | Planned | — | — |
 | 11 | Local release and pilot readiness | Planned | — | — |
 
 ## Step 0 — Reproducible local environment
@@ -167,65 +180,77 @@ Turn the draft `Item`, `ItemCategory`, `Client`, and `Booking` models into a rel
 - A blank database is created exclusively through migrations.
 - Domain constraints and lifecycle rules are documented and tested.
 
-## Step 3 — Item management
+## Step 3 — Configurable entity model and admin contract
 
 ### Goal
 
-Provide complete backend CRUD for schedulable resources and their categories.
+Turn the expanded product requirements into a tested, generic persistence and API contract before building CRUD against the transitional Item/Client model.
 
 ### Execute
 
-- Add endpoints to list, retrieve, create, update, and deactivate Items.
-- Add endpoints to list, retrieve, create, update, move, and deactivate Item categories.
-- Add schema validation for name and item type.
-- Allow an Item to have an optional category and return enough category-path data for filtering and display.
-- When filtering by a parent category, include Items from all descendant categories by default.
-- Prefer deactivation over deletion when an Item has bookings.
-- Return consistent API errors for missing and invalid Items.
+- Define `EntityType`, `Entity`, `FieldDefinition`, and `BookingParticipant` responsibilities and terminology.
+- Decide whether the existing Item and Client tables are migrated into one Entity table or retained behind a shared abstraction; document the trade-off and choose one path.
+- Add the Alembic migration for the chosen model without losing existing Item, Client, category, or Booking data.
+- Support typed custom-field definitions for at least text, number, boolean, date, and select values.
+- Validate custom values against their definitions and reject unknown, missing required, or incorrectly typed values.
+- Mark fields searchable/filterable explicitly and prove a practical SQLite query strategy with a documented PostgreSQL path.
+- Define role configuration and the `exclusive` rule that controls overlap detection.
+- Add optional color configuration on Entity, category, and EntityType with the documented precedence rule.
+- Provide seedable presets for hair salon, rental, and repair-workshop acceptance scenarios without hard-coding those industries into the domain.
+- Record a security decision before allowing sensitive fields such as passport or driver's-licence numbers.
 
 ### Automated tests
 
-- Test every endpoint's success path.
-- Test category creation, nesting, moving, descendant lookup, cycle rejection, and assignment to Items.
-- Test empty names, excessive lengths, missing IDs, and duplicate policy.
-- Test that inactive Items remain readable but cannot receive new bookings later.
+- Test migration upgrade/downgrade and preservation of existing step-2 data.
+- Test EntityType, role, and FieldDefinition constraints and lifecycle rules.
+- Test every supported custom datatype, required fields, invalid values, and definition changes with existing data.
+- Test indexed/core filtering plus searchable and filterable custom values with a representative dataset.
+- Test role exclusivity and color-precedence resolution.
+- Test that all three scenario presets can describe their required participants and fields.
 
 ### Manual acceptance
 
-- Use the generated FastAPI documentation to create a category hierarchy and create, categorize, edit, list, and deactivate an Item.
+- Configure and populate one hair-salon, rental, and repair-workshop example through a development script or API contract demonstration.
+- Inspect the generated schema and representative filter queries.
 
 ### Done when
 
-- Item and Item-category management are complete at API level and all edge cases pass.
+- The generic model is chosen, migrated, documented, and proven against all three scenarios.
+- Step 4 can build CRUD without another foundational model rewrite.
 
-## Step 4 — Client management
+## Step 4 — Entity and category management API
 
 ### Goal
 
-Provide complete backend CRUD for customers.
+Provide complete backend management for configured EntityTypes, Entities, custom fields, and category hierarchies.
 
 ### Execute
 
-- Add endpoints to list, retrieve, create, update, and archive Clients.
-- Validate names, email addresses, phone numbers, and notes.
-- Define how archived Clients with historical bookings are handled.
-- Add optional search by name or contact detail.
+- Add endpoints to list, retrieve, create, update, and deactivate/archive Entities.
+- Add administrator endpoints for EntityTypes, FieldDefinitions, planning roles, and color settings.
+- Add endpoints to list, retrieve, create, update, move, and deactivate categories.
+- Validate core and configured fields and return consistent structured errors.
+- Return category paths, resolved display color, type metadata, and role capabilities needed by later UI phases.
+- Support search and combinable filters across type, category, core fields, and allowed custom fields.
+- Prefer archive/deactivation when historical Bookings reference an Entity or configuration record.
 
 ### Automated tests
 
-- Test every endpoint's success path.
-- Test invalid email, missing name, missing ID, and archive behaviour.
-- Test search with matching, non-matching, and case-insensitive input.
+- Test every endpoint's success and authorization-scope path.
+- Test category nesting, moving, descendant lookup, cycle rejection, and Entity assignment.
+- Test invalid custom values, empty names, excessive lengths, duplicates, missing IDs, and archived records.
+- Test search/filtering with matching, non-matching, combined, special-character, and case-insensitive input.
+- Test that referenced or inactive configuration cannot silently invalidate historical data.
 
 ### Manual acceptance
 
-- Use the FastAPI documentation to complete the full Client lifecycle.
+- Use FastAPI documentation to configure an EntityType and fields, create and categorize Entities, edit values and colors, search/filter them, and archive one record.
 
 ### Done when
 
-- Client management is complete without breaking historical booking references.
+- Entity and category management are complete at API level without breaking historical Booking references.
 
-## Step 5 — Booking API and double-booking protection
+## Step 5 — Multi-entity Booking API and conflict protection
 
 ### Goal
 
@@ -234,9 +259,10 @@ Deliver the scheduling core as a tested backend workflow.
 ### Execute
 
 - Add list, retrieve, create, update, cancel, and delete rules for Bookings.
-- Connect the existing overlap query to create and reschedule operations.
-- Return HTTP 409 with structured conflict details for double-bookings.
-- Support combinable filtering by date range, Item, Item category (including descendants), Client, status, and relevant free text.
+- Accept one or more BookingParticipants with configured roles and validate required role cardinality.
+- Connect overlap detection to every participant whose role/type is marked exclusive.
+- Return HTTP 409 with structured conflict details identifying every conflicting Entity and role.
+- Support combinable filtering by date range, EntityType, Entity, role, category (including descendants), status, relevant custom fields, and free text.
 - Define filters as a shared API contract so calendar and list views return the same matching result set.
 - Define boundary behaviour for adjacent bookings and cancelled bookings.
 - Execute overlap checks and writes in a safe transaction.
@@ -246,18 +272,20 @@ Deliver the scheduling core as a tested backend workflow.
 - Test non-overlapping, partially overlapping, contained, containing, and identical intervals.
 - Test adjacent intervals where one booking ends exactly when another starts.
 - Test cancelled bookings and exclusion of the booking being edited.
-- Test invalid Item, invalid Client, invalid interval, each filter independently, combined filters, empty results, and category-descendant filtering.
+- Test multiple participants, missing required roles, invalid role/type combinations, and duplicate participants.
+- Test conflicts for employee, rental Item, and station roles; verify non-exclusive customer/subject roles follow configuration.
+- Test invalid Entity, invalid interval, each filter independently, combined filters, empty results, custom fields, and category-descendant filtering.
 - Test API status codes and error payloads.
 
 ### Manual acceptance
 
-- Create a valid booking through the API.
-- Attempt a conflicting booking and confirm it is rejected clearly.
+- Create salon, rental, and workshop Bookings through the API with their respective participant roles.
+- Attempt conflicts on an exclusive employee, Item, and station and confirm each is rejected clearly.
 - Move or cancel the original booking and confirm the slot becomes available.
 
 ### Done when
 
-- No create or update path can bypass overlap protection.
+- No create or update path can bypass overlap protection for an exclusive participant.
 - The complete booking lifecycle passes automated and manual checks.
 
 ## Step 6 — Frontend application shell and API integration
@@ -269,7 +297,7 @@ Create a maintainable frontend structure that handles data, errors, and navigati
 ### Execute
 
 - Add routing and page-level layout.
-- Add a typed API layer for Items, Clients, and Bookings.
+- Add a typed API layer for configuration, EntityTypes, Entities, categories, and Bookings.
 - Add shared loading, empty, offline, validation, and error states.
 - Add a query/cache library only if it materially simplifies server-state handling.
 - Replace the temporary calendar event with server-provided data plumbing.
@@ -290,18 +318,19 @@ Create a maintainable frontend structure that handles data, errors, and navigati
 
 - The frontend has no hard-coded demo data and all API states are understandable.
 
-## Step 7 — Item and client user interface
+## Step 7 — Entity and configuration user interface
 
 ### Goal
 
-Allow a non-technical user to manage the supporting booking data and Item-category hierarchy.
+Allow a non-technical administrator to configure EntityTypes and fields, and allow users to manage the resulting Entities and categories.
 
 ### Execute
 
-- Build Item list, create, edit, and deactivate flows.
-- Build Item-category tree management with create, rename, move, and deactivate flows.
-- Allow Items to be assigned or moved to a category.
-- Build Client list, search, create, edit, and archive flows.
+- Build administrator flows for EntityTypes, custom fields, roles, exclusivity, and default colors.
+- Generate Entity forms from FieldDefinitions with clear datatype-specific controls.
+- Build Entity list, search/filter, create, edit, color, and deactivate/archive flows.
+- Build category-tree management with create, rename, move, color, and deactivate flows.
+- Allow Entities to be assigned or moved to a category.
 - Add accessible forms, field-level validation, confirmations, and success feedback.
 - Ensure keyboard navigation and responsive layout.
 
@@ -309,17 +338,18 @@ Allow a non-technical user to manage the supporting booking data and Item-catego
 
 - Test form validation and submitted payloads.
 - Test list loading, empty states, edits, archive/deactivate actions, and API errors.
-- Test category-tree interactions, Item assignment, moving categories, and cycle/error feedback.
+- Test generated forms for each supported datatype and changed field definitions.
+- Test category-tree interactions, Entity assignment, moving categories, color precedence, and cycle/error feedback.
 - Test core forms with keyboard interaction.
 
 ### Manual acceptance
 
-- Complete Item, Item-category, and Client lifecycles using only the browser.
+- Configure and complete Entity and category lifecycles for each of the three scenario presets using only the browser.
 - Repeat the core workflow on a narrow mobile-size viewport.
 
 ### Done when
 
-- Items and Clients can be managed without FastAPI documentation or direct database access.
+- Configuration and Entities can be managed without FastAPI documentation or direct database access.
 
 ## Step 8 — Calendar booking workflow
 
@@ -330,7 +360,7 @@ Create, inspect, edit, and cancel bookings from the calendar.
 ### Execute
 
 - Load Bookings for the calendar's visible date range.
-- Map booking status and Item information into calendar events.
+- Map booking status, participants, roles, and resolved configurable color into calendar events.
 - Add booking creation from a selected time slot.
 - Add event detail, edit, and cancellation flows.
 - Refresh only affected data after a successful mutation.
@@ -344,7 +374,7 @@ Create, inspect, edit, and cancel bookings from the calendar.
 
 ### Manual acceptance
 
-- Create an Item and Client, then create, edit, and cancel their Booking entirely in the UI.
+- Create the required Entities, then create, edit, and cancel a multi-participant Booking entirely in the UI.
 - Confirm the calendar remains correct across week and day views.
 
 ### Done when
@@ -359,10 +389,10 @@ Make calendar rescheduling fast without allowing inconsistent data.
 
 ### Execute
 
-- Persist FullCalendar event drops and duration changes through the Booking API.
+- Persist FullCalendar event drops and duration changes through the Booking API while checking every exclusive participant.
 - Use optimistic feedback only when it can be rolled back reliably.
 - Restore the original calendar event after a rejected change.
-- Display a clear conflict message with the blocked interval.
+- Display a clear conflict message with the blocked interval, Entity, and role.
 - Prevent duplicate submissions during a pending update.
 
 ### Automated tests
@@ -381,7 +411,7 @@ Make calendar rescheduling fast without allowing inconsistent data.
 
 - Drag-and-drop is persistent, conflict-safe, and recoverable after failures.
 
-## Step 10 — Availability, shared filtering, list view, and operational quality
+## Step 10 — Availability, shared filtering, colors, list view, and operational quality
 
 ### Goal
 
@@ -389,37 +419,43 @@ Make the scheduling board useful during daily operations and for focused plannin
 
 ### Execute
 
-- Add one shared filter bar for Client, Item/resource, Item category, booking status, date range, and relevant free text.
+- Add one shared filter bar generated from configured EntityTypes, roles, categories, filterable fields, booking status, date range, and relevant free text.
 - Combine active filters cumulatively and provide a clear-all action plus visible active-filter indicators.
-- Make parent-category filters include Items in descendant categories unless the user explicitly selects only one category level.
+- Make parent-category filters include Entities in descendant categories unless the user explicitly selects only one category level.
 - Keep the calendar as the default main view and add a list view based on the exact same filtered booking result set.
 - Preserve active filters, date range, and relevant selection state when switching between calendar and list views.
-- Show only matching Bookings and the corresponding Items/resources in both views; show a clear empty state when nothing matches.
-- Show availability for the selected date range.
+- Show only matching Bookings and corresponding Entities in both views; show a clear empty state when nothing matches.
+- Apply resolved Entity/category/EntityType colors consistently in calendar, list, legend, and accessible non-color indicators.
+- Show availability for configured exclusive Entities in the selected date range.
 - Add deliberate loading performance for realistic data volumes.
 - Add structured backend logging and safe user-facing errors.
 - Review accessibility, responsiveness, timezone behaviour, and data validation.
 - Add CSV or Excel-compatible export if it remains part of the first pilot need.
+- If contract generation is confirmed for the pilot, add managed Markdown templates, an allowlisted placeholder model, preview, and PDF output; otherwise retain it as an explicitly deferred requirement.
 
 ### Automated tests
 
-- Test every filter independently, meaningful filter combinations, clear-all behaviour, descendant-category filtering, and availability calculations.
+- Test generated filters independently, meaningful combinations, clear-all behaviour, descendant-category/custom-field filtering, and per-role availability calculations.
 - Test that calendar and list views contain the same matching Bookings and that switching views preserves filter state.
 - Test empty results, archived entities, special characters, and case-insensitive free-text matching.
 - Add a realistic dataset test for range queries.
 - Run an accessibility check on primary pages.
 - Test export columns, escaping, and date formatting if export is included.
+- Test color precedence, legend/accessibility behaviour, and stable rendering after configuration changes.
+- If documents are included, test placeholder allowlisting, escaping, missing values, template versioning, and PDF generation.
 
 ### Manual acceptance
 
-- Complete a realistic hair-salon scenario by filtering appointments by Client and hairdresser, then switching between calendar and list views.
-- Complete a realistic rental scenario by filtering Items through a parent and child category.
-- Confirm that active filters remain unchanged after switching views and that only matching Bookings and Items are visible.
+- Complete a realistic hair-salon scenario by filtering appointments by customer, hairdresser, and station, then switch between calendar and list views.
+- Complete a realistic rental scenario by filtering Entities through a parent category, custom property, and participant role.
+- Complete a repair-workshop scenario by filtering on workpiece, mechanic, and workbench.
+- Confirm that active filters remain unchanged after switching views and that only matching Bookings and Entities are visible.
+- Confirm configured colors resolve consistently; if in pilot scope, generate a rental contract from a Booking.
 - Verify the core workflow on desktop and tablet-size layouts.
 
 ### Done when
 
-- The board supports a realistic workday, shared filtering, and calendar/list switching without direct technical intervention.
+- The board supports all three realistic scenarios, shared generated filtering, configured colors, and calendar/list switching without direct technical intervention.
 
 ## Step 11 — Local release and pilot readiness
 
@@ -429,7 +465,7 @@ Deliver an installable local MVP that can be evaluated by the first pilot user.
 
 ### Execute
 
-- Add the agreed minimal authentication or local access protection.
+- Add the agreed minimal authentication or local access protection, including protection appropriate for any configured sensitive fields.
 - Build the production frontend and serve it through the packaged application.
 - Package the backend, frontend assets, and SQLite setup for a clean machine.
 - Add backup, restore, export, and upgrade instructions.
@@ -446,7 +482,7 @@ Deliver an installable local MVP that can be evaluated by the first pilot user.
 ### Manual acceptance
 
 - Install and start Planboard on a clean machine or clean virtual machine.
-- Complete the full Item → Client → Booking → reschedule → export/backup workflow.
+- Complete the full configuration → Entity → multi-participant Booking → reschedule → export/backup workflow.
 - Restart the machine and confirm data persists.
 - Record pilot feedback separately from release-blocking defects.
 
@@ -463,6 +499,7 @@ The MVP may be called complete only when:
 - The full automated suite passes from a clean checkout.
 - The clean-machine acceptance test passes.
 - No open defect can cause lost data, invalid bookings, or silent scheduling conflicts.
+- The salon, rental, and repair-workshop acceptance scenarios pass using configuration rather than branch-specific code.
 - The vault project page records the release version and pilot decision.
 
 After this gate, decide whether to prioritise pilot feedback, recurring bookings, notifications, PostgreSQL/multi-tenancy, or a SaaS deployment. Those are separate plans, not hidden additions to this MVP.
@@ -477,3 +514,4 @@ Add one row after completing or blocking a step.
 | 2026-08-23 | 0 | Complete | `./scripts/check.sh`; `bun run lint`; `bun run build`; frontend and API returned HTTP 200 | Corrected obsolete `uv` installation note; committed in `7831084` |
 | 2026-08-23 | 1 | Complete | Backend: Ruff + 1 Pytest test; frontend: ESLint + 4 Vitest tests + production build | Tests use temporary SQLite; use `./scripts/check.sh` and `bun run check` as quality gates |
 | 2026-08-23 | 2 | Complete | Backend: Ruff + 15 Pytest tests + `alembic check`; frontend: ESLint + 4 Vitest tests + production build; category/Item/Client/Booking smoke in rollback transaction; both services HTTP 200 | Alembic now owns schema lifecycle; legacy scaffold data is preserved during upgrade; timestamps normalize to UTC; implementation in `cffb0d5` |
+| 2026-08-23 | Requirements refinement | `wensen.md` incorporated into product and development plans | Scenario and consistency review | Step 3 is now a mandatory architecture checkpoint for configurable Entities, fields, roles, colors, and multi-participant Bookings before CRUD continues |

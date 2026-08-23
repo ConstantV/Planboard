@@ -1,14 +1,19 @@
 from datetime import datetime
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from app.models.booking import BookingStatus
 from app.schemas.common import ApiModel, PersistedModel
 
 
+class BookingParticipantCreate(ApiModel):
+    entity_id: str
+    role_definition_id: str
+    display_order: int = 0
+
+
 class BookingCreate(ApiModel):
-    item_id: str
-    client_id: str
+    participants: list[BookingParticipantCreate] = Field(min_length=1)
     start_at: datetime
     end_at: datetime
     status: BookingStatus = BookingStatus.CONFIRMED

@@ -1,6 +1,6 @@
 # Planboard
 
-Planboard is a flexible scheduling application that connects an item, client, and duration. The MVP targets appointment-based services while keeping the scheduling core generic enough for rental and workshop-routing use cases.
+Planboard is a flexible scheduling application that connects configurable people, objects, and resources to a date, time, and duration. Its generic planning core targets appointment services, rental, and workshop-routing use cases.
 
 ## Repository layout
 
@@ -72,10 +72,16 @@ bun run check
 
 - FastAPI application with a health endpoint
 - Alembic-managed SQLite database schema
-- Validated `ItemCategory`, `Item`, `Client`, and `Booking` models
-- Booking-overlap query as the first scheduling business rule
+- Configurable `EntityType`, `Entity`, `FieldDefinition`, category, and role models
+- Multi-participant Bookings with overlap checks for exclusive planning roles
 - React shell with an editable FullCalendar week view
 - Backend connectivity status in the UI
+
+## Product direction
+
+The current architecture generalizes the transitional `Item` and `Client` models into configurable planning entities. A Booking can contain multiple role-based participants, such as customer + hairdresser + chair, customer + rental Item, or workpiece + mechanic + workbench. Entity types define custom validated fields, searchable/filterable behaviour, scheduling exclusivity, and optional calendar colors.
+
+See [`wensen.md`](wensen.md) for the original scenarios and [`docs/development-plan.md`](docs/development-plan.md) for their phased implementation.
 
 The source project plan lives in `MyVault/01. Projects/Planboard/Planboard.md`.
 

@@ -6,10 +6,14 @@ from sqlalchemy import create_engine, inspect, text
 
 EXPECTED_TABLES = {
     "alembic_version",
+    "booking_participants",
     "bookings",
-    "clients",
-    "item_categories",
-    "items",
+    "entities",
+    "entity_categories",
+    "entity_field_values",
+    "entity_types",
+    "field_definitions",
+    "role_definitions",
 }
 
 
@@ -47,16 +51,24 @@ def test_migration_contains_expected_constraints(test_engine) -> None:
     booking_checks = {
         constraint["name"] for constraint in inspector.get_check_constraints("bookings")
     }
-    booking_foreign_keys = inspector.get_foreign_keys("bookings")
-    category_foreign_keys = inspector.get_foreign_keys("item_categories")
-    item_foreign_keys = inspector.get_foreign_keys("items")
+    field_checks = {
+        constraint["name"] for constraint in inspector.get_check_constraints("field_definitions")
+    }
+    participant_foreign_keys = inspector.get_foreign_keys("booking_participants")
+    category_foreign_keys = inspector.get_foreign_keys("entity_categories")
+    entity_foreign_keys = inspector.get_foreign_keys("entities")
 
     assert "ck_bookings_valid_interval" in booking_checks
-    assert {foreign_key["options"].get("ondelete") for foreign_key in booking_foreign_keys} == {
-        "RESTRICT"
+    assert "field_data_type" in field_checks
+    assert {foreign_key["options"].get("ondelete") for foreign_key in participant_foreign_keys} == {
+        "CASCADE",
+        "RESTRICT",
     }
     assert category_foreign_keys[0]["options"].get("ondelete") == "RESTRICT"
-    assert item_foreign_keys[0]["options"].get("ondelete") == "SET NULL"
+    assert {foreign_key["options"].get("ondelete") for foreign_key in entity_foreign_keys} == {
+        "RESTRICT",
+        "SET NULL",
+    }
 
 
 def test_upgrade_preserves_data_from_pre_migration_schema(tmp_path: Path) -> None:
@@ -99,15 +111,33 @@ def test_upgrade_preserves_data_from_pre_migration_schema(tmp_path: Path) -> Non
     try:
         with engine.connect() as connection:
             client = connection.execute(
-                text("SELECT name, is_archived FROM clients WHERE id = 'client-1'")
+                text(
+                    "SELECT e.name, e.is_active, t.key FROM entities e "
+                    "JOIN entity_types t ON t.id = e.entity_type_id WHERE e.id = 'client-1'"
+                )
             ).one()
             item = connection.execute(
-                text("SELECT name, category_id FROM items WHERE id = 'item-1'")
+                text(
+                    "SELECT e.name, e.category_id, t.key FROM entities e "
+                    "JOIN entity_types t ON t.id = e.entity_type_id WHERE e.id = 'item-1'"
+                )
             ).one()
             booking_count = connection.execute(text("SELECT COUNT(*) FROM bookings")).scalar_one()
+            participant_count = connection.execute(
+                text("SELECT COUNT(*) FROM booking_participants WHERE booking_id = 'booking-1'")
+            ).scalar_one()
+            item_type = connection.execute(
+                text(
+                    "SELECT v.text_value FROM entity_field_values v "
+                    "JOIN field_definitions f ON f.id = v.field_definition_id "
+                    "WHERE v.entity_id = 'item-1' AND f.key = 'item_type'"
+                )
+            ).scalar_one()
     finally:
         engine.dispose()
 
-    assert client == ("Ada", False)
-    assert item == ("Stoel 1", None)
+    assert client == ("Ada", True, "client")
+    assert item == ("Stoel 1", None, "resource")
     assert booking_count == 1
+    assert participant_count == 2
+    assert item_type == "resource"

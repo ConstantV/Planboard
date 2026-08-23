@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, Enum, ForeignKey, Text, event
+from sqlalchemy import CheckConstraint, Enum, ForeignKey, Text, UniqueConstraint, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -12,8 +12,7 @@ from app.models.mixins import IdMixin, TimestampMixin
 from app.models.types import UTCDateTime
 
 if TYPE_CHECKING:
-    from app.models.client import Client
-    from app.models.item import Item
+    from app.models.entity import Entity, RoleDefinition
 
 
 class BookingStatus(StrEnum):
@@ -32,10 +31,6 @@ class Booking(IdMixin, TimestampMixin, Base):
         ),
     )
 
-    item_id: Mapped[str] = mapped_column(ForeignKey("items.id", ondelete="RESTRICT"), index=True)
-    client_id: Mapped[str] = mapped_column(
-        ForeignKey("clients.id", ondelete="RESTRICT"), index=True
-    )
     start_at: Mapped[datetime] = mapped_column(UTCDateTime(), index=True)
     end_at: Mapped[datetime] = mapped_column(UTCDateTime(), index=True)
     status: Mapped[BookingStatus] = mapped_column(
@@ -51,8 +46,41 @@ class Booking(IdMixin, TimestampMixin, Base):
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    item: Mapped[Item] = relationship(back_populates="bookings")
-    client: Mapped[Client] = relationship(back_populates="bookings")
+    participants: Mapped[list[BookingParticipant]] = relationship(
+        back_populates="booking",
+        cascade="all, delete-orphan",
+        order_by="BookingParticipant.display_order",
+    )
+
+
+class BookingParticipant(IdMixin, TimestampMixin, Base):
+    __tablename__ = "booking_participants"
+    __table_args__ = (
+        UniqueConstraint(
+            "booking_id",
+            "entity_id",
+            "role_definition_id",
+            name="uq_booking_participant",
+        ),
+    )
+
+    booking_id: Mapped[str] = mapped_column(
+        ForeignKey("bookings.id", ondelete="CASCADE"),
+        index=True,
+    )
+    entity_id: Mapped[str] = mapped_column(
+        ForeignKey("entities.id", ondelete="RESTRICT"),
+        index=True,
+    )
+    role_definition_id: Mapped[str] = mapped_column(
+        ForeignKey("role_definitions.id", ondelete="RESTRICT"),
+        index=True,
+    )
+    display_order: Mapped[int] = mapped_column(default=0)
+
+    booking: Mapped[Booking] = relationship(back_populates="participants")
+    entity: Mapped[Entity] = relationship(back_populates="booking_participants")
+    role_definition: Mapped[RoleDefinition] = relationship(back_populates="booking_participants")
 
 
 @event.listens_for(Booking, "before_insert")

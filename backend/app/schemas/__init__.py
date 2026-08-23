@@ -1,12 +1,19 @@
-from app.schemas.booking import BookingCreate, BookingRead
-from app.schemas.client import ClientCreate, ClientRead
-from app.schemas.item import ItemCreate, ItemRead
+from app.schemas.booking import BookingCreate, BookingParticipantCreate, BookingRead
+from app.schemas.entity import (
+    EntityCreate,
+    EntityRead,
+    EntityTypeCreate,
+    FieldDefinitionCreate,
+    RoleDefinitionCreate,
+)
 
 __all__ = [
     "BookingCreate",
+    "BookingParticipantCreate",
     "BookingRead",
-    "ClientCreate",
-    "ClientRead",
-    "ItemCreate",
-    "ItemRead",
+    "EntityCreate",
+    "EntityRead",
+    "EntityTypeCreate",
+    "FieldDefinitionCreate",
+    "RoleDefinitionCreate",
 ]
