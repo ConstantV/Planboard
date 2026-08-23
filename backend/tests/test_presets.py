@@ -34,6 +34,7 @@ def test_scenario_preset_defines_roles_and_exclusivity(
 
     assert set(roles) == expected_roles
     assert {key for key, role in roles.items() if role.is_exclusive} == exclusive_roles
+    assert {role.booking_scope for role in roles.values()} == {preset_key}
 
 
 def test_presets_cover_requested_configurable_fields(db_session: Session) -> None:

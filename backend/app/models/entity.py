@@ -161,6 +161,7 @@ class RoleDefinition(IdMixin, TimestampMixin, Base):
 
     key: Mapped[str] = mapped_column(String(80), unique=True, index=True)
     label: Mapped[str] = mapped_column(String(120))
+    booking_scope: Mapped[str] = mapped_column(String(80), default="default", index=True)
     entity_type_id: Mapped[str] = mapped_column(
         ForeignKey("entity_types.id", ondelete="RESTRICT"),
         index=True,

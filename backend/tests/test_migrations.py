@@ -57,6 +57,8 @@ def test_migration_contains_expected_constraints(test_engine) -> None:
     participant_foreign_keys = inspector.get_foreign_keys("booking_participants")
     category_foreign_keys = inspector.get_foreign_keys("entity_categories")
     entity_foreign_keys = inspector.get_foreign_keys("entities")
+    role_columns = {column["name"] for column in inspector.get_columns("role_definitions")}
+    role_indexes = {index["name"] for index in inspector.get_indexes("role_definitions")}
 
     assert "ck_bookings_valid_interval" in booking_checks
     assert "field_data_type" in field_checks
@@ -69,6 +71,8 @@ def test_migration_contains_expected_constraints(test_engine) -> None:
         "RESTRICT",
         "SET NULL",
     }
+    assert "booking_scope" in role_columns
+    assert "ix_role_definitions_booking_scope" in role_indexes
 
 
 def test_upgrade_preserves_data_from_pre_migration_schema(tmp_path: Path) -> None:

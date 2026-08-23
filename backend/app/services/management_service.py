@@ -18,6 +18,7 @@ from app.services.entity_service import (
     EntityConfigurationError,
     build_field_value,
     change_field_data_type,
+    contains_pattern,
     field_value_column,
     get_entity_values,
     resolve_entity_color,
@@ -119,13 +120,13 @@ def list_entities(
             searchable_query = searchable_query.where(
                 FieldDefinition.entity_type_id == entity_type_id
             )
-        pattern = f"%{search_query}%"
+        pattern = contains_pattern(search_query)
         statement = statement.where(
             or_(
-                Entity.name.ilike(pattern),
+                Entity.name.ilike(pattern, escape="\\"),
                 Entity.field_values.any(
                     EntityFieldValue.field_definition_id.in_(searchable_query)
-                    & EntityFieldValue.text_value.ilike(pattern)
+                    & EntityFieldValue.text_value.ilike(pattern, escape="\\")
                 ),
             )
         )
@@ -215,6 +216,7 @@ def serialize_role_definition(role: RoleDefinition) -> dict[str, Any]:
         "id": role.id,
         "key": role.key,
         "label": role.label,
+        "booking_scope": role.booking_scope,
         "entity_type_id": role.entity_type_id,
         "is_required": role.is_required,
         "allow_multiple": role.allow_multiple,

@@ -1,4 +1,11 @@
-from app.schemas.booking import BookingCreate, BookingParticipantCreate, BookingRead
+from app.schemas.booking import (
+    BookingConflict,
+    BookingCreate,
+    BookingParticipantCreate,
+    BookingParticipantRead,
+    BookingRead,
+    BookingUpdate,
+)
 from app.schemas.entity import (
     EntityCategoryCreate,
     EntityCategoryRead,
@@ -17,9 +24,12 @@ from app.schemas.entity import (
 )
 
 __all__ = [
+    "BookingConflict",
     "BookingCreate",
     "BookingParticipantCreate",
+    "BookingParticipantRead",
     "BookingRead",
+    "BookingUpdate",
     "EntityCreate",
     "EntityCategoryCreate",
     "EntityCategoryRead",

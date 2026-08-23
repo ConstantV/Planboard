@@ -58,6 +58,7 @@ class FieldDefinitionRead(FieldDefinitionBase):
 class RoleDefinitionBase(ApiModel):
     key: str = Field(pattern=KEY_PATTERN, max_length=80)
     label: str = Field(min_length=1, max_length=120)
+    booking_scope: str = Field(default="default", pattern=KEY_PATTERN, max_length=80)
     entity_type_id: str
     is_required: bool = False
     allow_multiple: bool = False
@@ -72,6 +73,7 @@ class RoleDefinitionCreate(RoleDefinitionBase):
 class RoleDefinitionUpdate(ApiModel):
     key: str | None = Field(default=None, pattern=KEY_PATTERN, max_length=80)
     label: str | None = Field(default=None, min_length=1, max_length=120)
+    booking_scope: str | None = Field(default=None, pattern=KEY_PATTERN, max_length=80)
     entity_type_id: str | None = None
     is_required: bool | None = None
     allow_multiple: bool | None = None

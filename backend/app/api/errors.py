@@ -32,7 +32,7 @@ def register_error_handlers(app: FastAPI) -> None:
     async def handle_api_error(_request: Request, error: ApiError) -> JSONResponse:
         return JSONResponse(
             status_code=error.status_code,
-            content=error_payload(error.code, error.message, error.details),
+            content=jsonable_encoder(error_payload(error.code, error.message, error.details)),
         )
 
     @app.exception_handler(RequestValidationError)

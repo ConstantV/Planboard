@@ -190,14 +190,18 @@ def update_role_definition(
     if role is None:
         raise ApiError(404, "role_definition_not_found", "RoleDefinition does not exist")
     changes = payload.model_dump(exclude_unset=True)
-    if "entity_type_id" in changes and changes["entity_type_id"] != role.entity_type_id:
+    identity_changes = (
+        "entity_type_id" in changes and changes["entity_type_id"] != role.entity_type_id
+    ) or ("booking_scope" in changes and changes["booking_scope"] != role.booking_scope)
+    if identity_changes:
         if role.booking_participants:
             raise ApiError(
                 422,
                 "role_in_use",
-                "Cannot change EntityType while the role is used by Bookings",
+                "Cannot change EntityType or booking_scope while the role is used by Bookings",
             )
-        load_entity_type(session, changes["entity_type_id"])
+        if "entity_type_id" in changes:
+            load_entity_type(session, changes["entity_type_id"])
     for key, value in changes.items():
         setattr(role, key, value)
     commit_or_conflict(session, "Role key already exists")

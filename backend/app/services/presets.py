@@ -142,6 +142,7 @@ def apply_preset(session: Session, preset_key: str) -> list[EntityType]:
             RoleDefinition(
                 key=type_preset.role_key,
                 label=type_preset.role_label,
+                booking_scope=preset_key,
                 is_required=type_preset.required,
                 is_exclusive=type_preset.exclusive,
                 display_order=order,

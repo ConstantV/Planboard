@@ -22,6 +22,11 @@ class EntityConfigurationError(ValueError):
     pass
 
 
+def contains_pattern(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 def validate_field_definition(definition: FieldDefinition) -> None:
     options = definition.select_options
     if definition.data_type is FieldDataType.SELECT:
@@ -193,15 +198,15 @@ def search_entities(session: Session, entity_type_key: str, query: str) -> list[
         if definition.is_searchable
         and definition.data_type in {FieldDataType.TEXT, FieldDataType.SELECT}
     ]
-    pattern = f"%{query}%"
+    pattern = contains_pattern(query)
     custom_match = Entity.field_values.any(
         (EntityFieldValue.field_definition_id.in_(searchable_ids))
-        & EntityFieldValue.text_value.ilike(pattern)
+        & EntityFieldValue.text_value.ilike(pattern, escape="\\")
     )
     statement = (
         select(Entity)
         .where(Entity.entity_type_id == entity_type.id)
-        .where(or_(Entity.name.ilike(pattern), custom_match))
+        .where(or_(Entity.name.ilike(pattern, escape="\\"), custom_match))
         .order_by(Entity.name)
     )
     return list(session.scalars(statement))
