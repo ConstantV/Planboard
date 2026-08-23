@@ -49,6 +49,23 @@ FullCalendar receives only mapped Booking API responses; the temporary demo even
 editing behaviour have been removed. A dedicated query/cache dependency is deferred until the
 create/update flows in later steps introduce meaningful invalidation and optimistic-update needs.
 
+## Frontend management interface
+
+The configuration and Entity pages form a browser-based administration layer over the management
+API. Reusable controlled forms own local validation, while one mutation hook normalizes pending,
+success, validation, conflict, offline, and server feedback. Successful mutations reload the small
+affected management dataset; optimistic caching remains unnecessary for the single-user MVP.
+
+Entity forms are generated at runtime from active FieldDefinitions and convert text, number,
+boolean, date, and select controls into the typed API contract. Entity search combines fixed and
+configured filters. Category management renders the materialized category paths as a tree and
+prevents an edited node or any descendant from being selected as its parent; the backend remains
+the authoritative cycle guard.
+
+Page routes use lazy imports. This separates the FullCalendar bundle from configuration and Entity
+management code and keeps the initial application shell smaller without introducing another state
+or data-fetching dependency.
+
 ## Custom-field storage decision
 
 Arbitrary JSON was rejected as the primary value store because Planboard must filter on configured

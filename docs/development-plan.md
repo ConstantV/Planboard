@@ -75,7 +75,7 @@ Custom values use relational, datatype-specific indexed columns because filterin
 | 4 | Entity and category management API | Complete | Backend: Ruff + 47 tests + Alembic drift check; frontend: lint + 4 tests + build; live OpenAPI/HTTP checks | `c05a0a4` |
 | 5 | Multi-entity Booking API and conflict protection | Complete | Backend: Ruff + 55 tests + Alembic drift check; frontend: lint + 4 tests + build; three-scenario API acceptance; live HTTP/OpenAPI checks | `fcb3d72` |
 | 6 | Frontend application shell and API integration | Complete | Backend: Ruff + 57 tests + Alembic drift check; frontend: lint + 17 tests + build; route/DOM acceptance; live routes, APIs, and CORS HTTP 200 | `d123f53` |
-| 7 | Entity and configuration user interface | Planned | — | — |
+| 7 | Entity and configuration user interface | Complete | Backend: Ruff + 57 tests + Alembic drift check; frontend: lint + 25 tests + build; live routes, APIs, and CORS HTTP 200 | `608fc0a` |
 | 8 | Calendar booking workflow | Planned | — | — |
 | 9 | Drag-and-drop rescheduling and conflict recovery | Planned | — | — |
 | 10 | Availability, shared filtering, colors, list view, and operational quality | Planned | — | — |
@@ -350,6 +350,25 @@ Allow a non-technical administrator to configure EntityTypes and fields, and all
 ### Done when
 
 - Configuration and Entities can be managed without FastAPI documentation or direct database access.
+
+### Completion evidence
+
+- The configuration page manages all three presets, EntityTypes, default colors, custom fields,
+  planning roles, cardinality, and exclusivity through accessible forms.
+- Entity forms are generated from active FieldDefinitions for text, number, boolean, date, and
+  select values and validate required fields before sending typed payloads.
+- The Entity page combines free-text, type, category, archive, and configured custom-field filters;
+  it supports create, edit, category assignment, color override, and confirmed archival.
+- The category tree supports create, rename, move, color, and archive actions and excludes the
+  current node and its descendants from valid parents before the API's cycle validation runs.
+- Backend quality gate: Ruff/checks, 57 tests, and Alembic drift detection passed.
+- Frontend quality gate: ESLint, 25 Vitest tests across eight files, TypeScript, and the Vite
+  production build passed. Route-level lazy loading keeps management pages out of the initial chunk.
+- Live acceptance confirmed `/`, `/planning`, `/entities`, `/configuration`, the six management
+  endpoints used by the UI, and the frontend CORS preflight all return HTTP 200.
+- Automated in-app browser control was unavailable in this environment. The browser workflows are
+  covered by DOM interaction tests and live HTTP checks; visual viewport acceptance remains a
+  hands-on smoke check before pilot delivery.
 
 ## Step 8 — Calendar booking workflow
 

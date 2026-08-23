@@ -96,6 +96,12 @@ uv run python -m scripts.verify_booking_api
 - Typed frontend clients for configuration, Entity, category, and Booking APIs
 - Shared loading, empty, offline, validation, conflict, and server-error states with retry
 - Recovering backend connectivity status in the UI
+- Browser-based management for presets, EntityTypes, typed custom fields, planning roles, and
+  exclusivity
+- Generated Entity create/edit forms for text, number, boolean, date, and select properties
+- Entity search and cumulative type, category, archive, and configured-property filters
+- Hierarchical category create, rename, move, color, and archive workflows with cycle prevention
+- Confirmed archive actions plus field-level validation and structured mutation feedback
 
 ## Product direction
 
