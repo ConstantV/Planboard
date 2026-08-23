@@ -73,7 +73,7 @@ Custom values use relational, datatype-specific indexed columns because filterin
 | 2 | Database migrations and validated domain model | Complete | Backend: Ruff + 15 tests + Alembic drift check; frontend: lint + 4 tests + build; manual domain smoke | `cffb0d5` |
 | 3 | Configurable entity model and admin contract | Complete | Backend: Ruff + 35 tests + Alembic drift check; frontend: lint + 4 tests + build; three-scenario rollback smoke | `9d099e4` |
 | 4 | Entity and category management API | Complete | Backend: Ruff + 47 tests + Alembic drift check; frontend: lint + 4 tests + build; live OpenAPI/HTTP checks | `c05a0a4` |
-| 5 | Multi-entity Booking API and conflict protection | Planned | — | — |
+| 5 | Multi-entity Booking API and conflict protection | Complete | Backend: Ruff + 55 tests + Alembic drift check; frontend: lint + 4 tests + build; three-scenario API acceptance; live HTTP/OpenAPI checks | `fcb3d72` |
 | 6 | Frontend application shell and API integration | Planned | — | — |
 | 7 | Entity and configuration user interface | Planned | — | — |
 | 8 | Calendar booking workflow | Planned | — | — |
@@ -517,3 +517,4 @@ Add one row after completing or blocking a step.
 | 2026-08-23 | Requirements refinement | `wensen.md` incorporated into product and development plans | Scenario and consistency review | Step 3 is now a mandatory architecture checkpoint for configurable Entities, fields, roles, colors, and multi-participant Bookings before CRUD continues |
 | 2026-08-23 | 3 | Complete | Backend: Ruff + 35 Pytest tests + `alembic check`; frontend: ESLint + 4 Vitest tests + production build; salon/rental/workshop scenario script with rollback; both services HTTP 200 | Migrated Item/Client data to generic Entities; relational typed custom values chosen over arbitrary JSON; role-based exclusivity and color precedence implemented in `9d099e4` |
 | 2026-08-23 | 4 | Complete | Backend: Ruff + 47 Pytest tests + `alembic check`; frontend: ESLint + 4 Vitest tests + production build; backend, Swagger, and client HTTP 200; 16 management paths and 24 operations in live OpenAPI | Added structured errors and lifecycle APIs for EntityTypes, fields, roles, presets, categories, and Entities; search and combinable typed/category filters included in `c05a0a4` |
+| 2026-08-23 | 5 | Complete | Backend: Ruff + 55 Pytest tests + `alembic check`; frontend: ESLint + 4 Vitest tests + production build; salon/rental/workshop Booking API acceptance; backend, Booking list, Swagger, and client HTTP 200; 30 live OpenAPI operations | Added scoped required roles, atomic overlap checks, structured multi-Entity conflict details, lifecycle rules, and shared Booking filters in `fcb3d72` |

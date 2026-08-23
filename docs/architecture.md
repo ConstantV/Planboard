@@ -21,6 +21,11 @@ multi-tenant deployment without changing the domain contract.
 This structure supports salon, rental, and repair-workshop presets without industry-specific tables
 or code paths.
 
+Required roles are grouped by `booking_scope`. All participants in one Booking must use roles from
+the same scope, and every active required role in that scope must occur with its configured
+cardinality. This prevents roles from unrelated presets or legacy data from becoming accidental
+requirements for a Booking.
+
 ## Management API
 
 The `/api` management surface provides lifecycle endpoints for EntityTypes, FieldDefinitions,
@@ -51,6 +56,16 @@ when one starts before the other ends and ends after the other starts. Cancelled
 block time. Overlap protection applies to every BookingParticipant whose RoleDefinition is marked
 `is_exclusive`; customer or workpiece roles can therefore be non-exclusive while staff, rental
 Items, and stations block time.
+
+Create and update lock every involved Entity row before overlap detection on databases that support
+row locking. SQLite starts Booking writes with `BEGIN IMMEDIATE`, serializing the check-and-write
+sequence. Conflict responses identify every blocked Entity, requested role, conflicting role,
+Booking, and interval. Cancelled Bookings never block time; adjacent half-open intervals are valid.
+
+The Booking list endpoint is the shared result contract for later calendar and list views. It can
+combine an overlapping time range, EntityType, Entity, role, category descendants, status,
+configured filterable fields, and literal free-text search. SQL wildcard characters in user search
+input are escaped.
 
 ## Color resolution
 

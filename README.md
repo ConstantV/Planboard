@@ -73,12 +73,22 @@ cd frontend
 bun run check
 ```
 
+Run the isolated salon, rental, and repair-workshop Booking API acceptance:
+
+```bash
+cd backend
+uv run python -m scripts.verify_booking_api
+```
+
 ## Current scope
 
 - FastAPI application with a health endpoint
 - Alembic-managed SQLite database schema
 - Configurable `EntityType`, `Entity`, `FieldDefinition`, category, and role models
 - Management API with structured validation errors, search, filtering, and archive/deactivation
+- Multi-entity Booking API with scoped required roles and atomic overlap protection
+- Shared Booking filters for interval, EntityType, Entity, role, category descendants, status,
+  configured fields, and free text
 - Multi-participant Bookings with overlap checks for exclusive planning roles
 - React shell with an editable FullCalendar week view
 - Backend connectivity status in the UI
