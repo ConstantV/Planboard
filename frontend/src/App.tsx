@@ -1,38 +1,21 @@
-import { useEffect, useState } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
 
-import { getHealth } from "./api/health";
-import { ScheduleCalendar } from "./components/ScheduleCalendar";
-
-type ApiStatus = "checking" | "online" | "offline";
+import { AppShell } from "./components/AppShell";
+import { ConfigurationPage } from "./pages/ConfigurationPage";
+import { EntitiesPage } from "./pages/EntitiesPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
+import { PlanningPage } from "./pages/PlanningPage";
 
 export default function App() {
-  const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
-
-  useEffect(() => {
-    getHealth()
-      .then(() => setApiStatus("online"))
-      .catch(() => setApiStatus("offline"));
-  }, []);
-
   return (
-    <main className="app-shell">
-      <header className="app-header">
-        <div>
-          <p className="eyebrow">Scheduling workspace</p>
-          <h1>Planboard</h1>
-        </div>
-        <span
-          className={`status status--${apiStatus}`}
-          role="status"
-          aria-live="polite"
-        >
-          API: {apiStatus}
-        </span>
-      </header>
-
-      <section className="calendar-panel" aria-label="Planning calendar">
-        <ScheduleCalendar />
-      </section>
-    </main>
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route index element={<Navigate to="/planning" replace />} />
+        <Route path="planning" element={<PlanningPage />} />
+        <Route path="entities" element={<EntitiesPage />} />
+        <Route path="configuration" element={<ConfigurationPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
   );
 }

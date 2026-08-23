@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str = "sqlite:///./planboard.db"
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     @property
     def cors_origins_list(self) -> list[str]:

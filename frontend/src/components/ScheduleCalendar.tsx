@@ -2,10 +2,9 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import timeGridPlugin from "@fullcalendar/timegrid";
+import type { EventInput } from "@fullcalendar/core";
 
-export function ScheduleCalendar() {
-  const today = new Date().toISOString().slice(0, 10);
-
+export function ScheduleCalendar({ events }: { events: EventInput[] }) {
   return (
     <FullCalendar
       plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -15,18 +14,9 @@ export function ScheduleCalendar() {
         center: "title",
         right: "dayGridMonth,timeGridWeek,timeGridDay",
       }}
-      editable
-      selectable
       nowIndicator
       height="auto"
-      events={[
-        {
-          id: "welcome",
-          title: "First Planboard booking",
-          start: `${today}T10:00:00`,
-          end: `${today}T11:00:00`,
-        },
-      ]}
+      events={events}
     />
   );
 }
