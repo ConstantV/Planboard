@@ -55,9 +55,9 @@ Additional rules:
 
 | Step | Deliverable | Status | Test evidence | Commit |
 |------|-------------|--------|---------------|--------|
-| 0 | Reproducible local environment | Complete | Backend check; frontend lint/build; live HTTP checks | Pending initial repository commit |
-| 1 | Test infrastructure and CI-ready quality gates | Complete | Backend: 1 test; frontend: 4 tests; both full checks pass | Pending initial repository commit |
-| 2 | Database migrations and validated domain model | Planned | — | — |
+| 0 | Reproducible local environment | Complete | Backend check; frontend lint/build; live HTTP checks | `7831084` |
+| 1 | Test infrastructure and CI-ready quality gates | Complete | Backend: 1 test; frontend: 4 tests; both full checks pass | `7831084` |
+| 2 | Database migrations and validated domain model | Complete | Backend: Ruff + 15 tests + Alembic drift check; frontend: lint + 4 tests + build; manual domain smoke | `cffb0d5` |
 | 3 | Item management | Planned | — | — |
 | 4 | Client management | Planned | — | — |
 | 5 | Booking API and double-booking protection | Planned | — | — |
@@ -474,5 +474,6 @@ Add one row after completing or blocking a step.
 | Date | Step | Result | Test evidence | Decision or follow-up |
 |------|------|--------|---------------|-----------------------|
 | 2026-08-23 | Planning | Development plan created | Document review and structure check | Start with step 0; installing `uv` requires approval |
-| 2026-08-23 | 0 | Complete | `./scripts/check.sh`; `bun run lint`; `bun run build`; frontend and API returned HTTP 200 | Corrected obsolete `uv` installation note; initial repository commit remains pending |
+| 2026-08-23 | 0 | Complete | `./scripts/check.sh`; `bun run lint`; `bun run build`; frontend and API returned HTTP 200 | Corrected obsolete `uv` installation note; committed in `7831084` |
 | 2026-08-23 | 1 | Complete | Backend: Ruff + 1 Pytest test; frontend: ESLint + 4 Vitest tests + production build | Tests use temporary SQLite; use `./scripts/check.sh` and `bun run check` as quality gates |
+| 2026-08-23 | 2 | Complete | Backend: Ruff + 15 Pytest tests + `alembic check`; frontend: ESLint + 4 Vitest tests + production build; category/Item/Client/Booking smoke in rollback transaction; both services HTTP 200 | Alembic now owns schema lifecycle; legacy scaffold data is preserved during upgrade; timestamps normalize to UTC; implementation in `cffb0d5` |
