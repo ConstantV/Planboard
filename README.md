@@ -91,7 +91,11 @@ uv run python -m scripts.verify_booking_api
   configured fields, and free text
 - Multi-participant Bookings with overlap checks for exclusive planning roles
 - React shell with an editable FullCalendar week view
-- Backend connectivity status in the UI
+- Routed React shell for planning, Entities, and configuration
+- Server-backed FullCalendar data with no hard-coded demo events
+- Typed frontend clients for configuration, Entity, category, and Booking APIs
+- Shared loading, empty, offline, validation, conflict, and server-error states with retry
+- Recovering backend connectivity status in the UI
 
 ## Product direction
 

@@ -38,6 +38,17 @@ search, and configured filterable fields. The same filtering service is intended
 calendar and list views in later frontend steps. The current MVP is single-user; authentication and
 authorization are explicitly deferred rather than implied by these administrator endpoints.
 
+## Frontend application shell
+
+React Router owns page-level navigation between planning, Entities, and configuration. Pages never
+call `fetch` directly: typed modules expose the management and Booking contracts through one client
+that classifies offline, validation, conflict, and server errors. Shared resource hooks and status
+components provide loading, empty, retry, and recovery behaviour consistently.
+
+FullCalendar receives only mapped Booking API responses; the temporary demo event and non-persisted
+editing behaviour have been removed. A dedicated query/cache dependency is deferred until the
+create/update flows in later steps introduce meaningful invalidation and optimistic-update needs.
+
 ## Custom-field storage decision
 
 Arbitrary JSON was rejected as the primary value store because Planboard must filter on configured
