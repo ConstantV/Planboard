@@ -1,10 +1,19 @@
 from app.schemas.booking import BookingCreate, BookingParticipantCreate, BookingRead
 from app.schemas.entity import (
+    EntityCategoryCreate,
+    EntityCategoryRead,
+    EntityCategoryUpdate,
     EntityCreate,
     EntityRead,
     EntityTypeCreate,
+    EntityTypeRead,
+    EntityTypeUpdate,
     FieldDefinitionCreate,
+    FieldDefinitionRead,
+    FieldDefinitionUpdate,
     RoleDefinitionCreate,
+    RoleDefinitionRead,
+    RoleDefinitionUpdate,
 )
 
 __all__ = [
@@ -12,8 +21,17 @@ __all__ = [
     "BookingParticipantCreate",
     "BookingRead",
     "EntityCreate",
+    "EntityCategoryCreate",
+    "EntityCategoryRead",
+    "EntityCategoryUpdate",
     "EntityRead",
     "EntityTypeCreate",
+    "EntityTypeRead",
+    "EntityTypeUpdate",
     "FieldDefinitionCreate",
+    "FieldDefinitionRead",
+    "FieldDefinitionUpdate",
     "RoleDefinitionCreate",
+    "RoleDefinitionRead",
+    "RoleDefinitionUpdate",
 ]

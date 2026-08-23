@@ -70,18 +70,49 @@ def set_entity_values(session: Session, entity: Entity, values: dict[str, Any]) 
     if missing:
         raise EntityConfigurationError(f"missing required fields: {', '.join(sorted(missing))}")
 
-    entity.field_values.clear()
+    active_definition_ids = {definition.id for definition in definitions.values()}
+    current_values = {
+        field_value.field_definition_id: field_value
+        for field_value in entity.field_values
+        if field_value.field_definition_id in active_definition_ids
+    }
+    entity.field_values[:] = [
+        field_value
+        for field_value in entity.field_values
+        if field_value.field_definition_id not in active_definition_ids
+        or (
+            field_value.field_definition.key in values
+            and values[field_value.field_definition.key] is not None
+        )
+    ]
     for key, raw_value in values.items():
         if raw_value is None:
             continue
         definition = definitions[key]
         validate_field_definition(definition)
-        entity.field_values.append(build_field_value(definition, raw_value))
+        current = current_values.get(definition.id)
+        if current is None:
+            entity.field_values.append(build_field_value(definition, raw_value))
+            continue
+        set_field_value(current, definition, raw_value)
     session.add(entity)
 
 
 def build_field_value(definition: FieldDefinition, raw_value: Any) -> EntityFieldValue:
     value = EntityFieldValue(field_definition=definition)
+    set_field_value(value, definition, raw_value)
+    return value
+
+
+def set_field_value(
+    value: EntityFieldValue,
+    definition: FieldDefinition,
+    raw_value: Any,
+) -> None:
+    value.text_value = None
+    value.number_value = None
+    value.boolean_value = None
+    value.date_value = None
     data_type = definition.data_type
 
     if data_type is FieldDataType.TEXT:
@@ -116,7 +147,6 @@ def build_field_value(definition: FieldDefinition, raw_value: Any) -> EntityFiel
         if not isinstance(raw_value, date):
             raise EntityConfigurationError(f"{definition.key} must be a date")
         value.date_value = raw_value
-    return value
 
 
 def get_entity_values(entity: Entity) -> dict[str, Any]:

@@ -27,9 +27,7 @@ def main() -> None:
     try:
         scenario_results = []
         start_at = datetime(2026, 8, 26, 8, tzinfo=UTC)
-        for scenario_index, preset_key in enumerate(
-            ("hair_salon", "rental", "repair_workshop")
-        ):
+        for scenario_index, preset_key in enumerate(("hair_salon", "rental", "repair_workshop")):
             entity_types = apply_preset(session, preset_key)
             booking = Booking(
                 start_at=start_at + timedelta(hours=scenario_index * 2),
@@ -55,8 +53,7 @@ def main() -> None:
                 {
                     "scenario": preset_key,
                     "roles": [
-                        participant.role_definition.key
-                        for participant in booking.participants
+                        participant.role_definition.key for participant in booking.participants
                     ],
                     "exclusive": [
                         participant.role_definition.key
