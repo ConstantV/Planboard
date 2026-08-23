@@ -112,6 +112,9 @@ See [`wensen.md`](wensen.md) for the original scenarios and [`docs/development-p
 See the Dutch [`Planboard gebruikershandleiding`](docs/gebruikershandleiding.md) for a detailed
 configuration guide, practical salon/rental/workshop examples, and PDF-ready screen illustrations.
 
+Continue a development session from [`HANDOVER.md`](HANDOVER.md), which records the current state,
+quality evidence, workspace cautions, and the exact next increment.
+
 The source project plan lives in `MyVault/01. Projects/Planboard/Planboard.md`.
 
 ## Delivery plan
