@@ -40,6 +40,11 @@ uv run uvicorn app.main:app --reload
 ```
 
 The API will be available at <http://localhost:8000>. The health endpoint is `GET /api/health`.
+Interactive API documentation is available at <http://localhost:8000/docs>.
+
+Step 4 exposes management APIs for EntityTypes and their custom fields, planning roles and
+presets, hierarchical categories, and Entities. Entity listing supports free-text search plus
+combinable type, category-descendant, active-state, and typed custom-field filters.
 
 ## Start the frontend
 
@@ -73,6 +78,7 @@ bun run check
 - FastAPI application with a health endpoint
 - Alembic-managed SQLite database schema
 - Configurable `EntityType`, `Entity`, `FieldDefinition`, category, and role models
+- Management API with structured validation errors, search, filtering, and archive/deactivation
 - Multi-participant Bookings with overlap checks for exclusive planning roles
 - React shell with an editable FullCalendar week view
 - Backend connectivity status in the UI

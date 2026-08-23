@@ -21,6 +21,18 @@ multi-tenant deployment without changing the domain contract.
 This structure supports salon, rental, and repair-workshop presets without industry-specific tables
 or code paths.
 
+## Management API
+
+The `/api` management surface provides lifecycle endpoints for EntityTypes, FieldDefinitions,
+RoleDefinitions, presets, categories, and Entities. Records with historical relevance are
+deactivated instead of deleted. Responses use one structured error envelope with a stable code,
+message, and optional details.
+
+Entity queries can combine EntityType, category (including descendants), active state, free-text
+search, and configured filterable fields. The same filtering service is intended to feed both the
+calendar and list views in later frontend steps. The current MVP is single-user; authentication and
+authorization are explicitly deferred rather than implied by these administrator endpoints.
+
 ## Custom-field storage decision
 
 Arbitrary JSON was rejected as the primary value store because Planboard must filter on configured
