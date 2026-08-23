@@ -62,7 +62,7 @@ The requirements in `wensen.md` broaden Planboard from a fixed Item + Client sch
 - `exclusive`: a role/type setting that determines whether overlap protection applies to an Entity.
 - Configurable calendar colors with precedence: Entity, then category, then EntityType, then the application default.
 
-Custom values use a hybrid approach: definitions and query-critical core fields remain relational; flexible values may use validated JSON. Step 3 must prove filtering and migration behaviour in SQLite and document a PostgreSQL-compatible path before accepting this choice. Identity-document fields are not part of the default model and require an explicit privacy/security decision.
+Custom values use relational, datatype-specific indexed columns because filtering everywhere is a core requirement. JSON is limited to select-option configuration. This keeps validation and query semantics predictable in SQLite and PostgreSQL. Identity-document fields are not part of the default model and require an explicit privacy/security decision.
 
 ## Progress overview
 
@@ -71,7 +71,7 @@ Custom values use a hybrid approach: definitions and query-critical core fields 
 | 0 | Reproducible local environment | Complete | Backend check; frontend lint/build; live HTTP checks | `7831084` |
 | 1 | Test infrastructure and CI-ready quality gates | Complete | Backend: 1 test; frontend: 4 tests; both full checks pass | `7831084` |
 | 2 | Database migrations and validated domain model | Complete | Backend: Ruff + 15 tests + Alembic drift check; frontend: lint + 4 tests + build; manual domain smoke | `cffb0d5` |
-| 3 | Configurable entity model and admin contract | In progress | — | — |
+| 3 | Configurable entity model and admin contract | Complete | Backend: Ruff + 35 tests + Alembic drift check; frontend: lint + 4 tests + build; three-scenario rollback smoke | `9d099e4` |
 | 4 | Entity and category management API | Planned | — | — |
 | 5 | Multi-entity Booking API and conflict protection | Planned | — | — |
 | 6 | Frontend application shell and API integration | Planned | — | — |
@@ -515,3 +515,4 @@ Add one row after completing or blocking a step.
 | 2026-08-23 | 1 | Complete | Backend: Ruff + 1 Pytest test; frontend: ESLint + 4 Vitest tests + production build | Tests use temporary SQLite; use `./scripts/check.sh` and `bun run check` as quality gates |
 | 2026-08-23 | 2 | Complete | Backend: Ruff + 15 Pytest tests + `alembic check`; frontend: ESLint + 4 Vitest tests + production build; category/Item/Client/Booking smoke in rollback transaction; both services HTTP 200 | Alembic now owns schema lifecycle; legacy scaffold data is preserved during upgrade; timestamps normalize to UTC; implementation in `cffb0d5` |
 | 2026-08-23 | Requirements refinement | `wensen.md` incorporated into product and development plans | Scenario and consistency review | Step 3 is now a mandatory architecture checkpoint for configurable Entities, fields, roles, colors, and multi-participant Bookings before CRUD continues |
+| 2026-08-23 | 3 | Complete | Backend: Ruff + 35 Pytest tests + `alembic check`; frontend: ESLint + 4 Vitest tests + production build; salon/rental/workshop scenario script with rollback; both services HTTP 200 | Migrated Item/Client data to generic Entities; relational typed custom values chosen over arbitrary JSON; role-based exclusivity and color precedence implemented in `9d099e4` |
