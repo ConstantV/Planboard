@@ -1,0 +1,23 @@
+# Environment
+.env
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+backend/planboard.db
+
+# JavaScript
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
