@@ -18,13 +18,29 @@ vi.mock("./api/bookings", () => ({
 }));
 
 vi.mock("./api/configuration", () => ({
+  createEntityType: vi.fn(),
+  createFieldDefinition: vi.fn(),
+  createRoleDefinition: vi.fn(),
+  deactivateEntityType: vi.fn(),
+  deactivateFieldDefinition: vi.fn(),
+  deactivateRoleDefinition: vi.fn(),
+  installPreset: vi.fn(),
   listEntityTypes: vi.fn(),
   listRoleDefinitions: vi.fn(),
+  updateEntityType: vi.fn(),
+  updateFieldDefinition: vi.fn(),
+  updateRoleDefinition: vi.fn(),
 }));
 
 vi.mock("./api/entities", () => ({
+  createCategory: vi.fn(),
+  createEntity: vi.fn(),
+  deactivateCategory: vi.fn(),
+  deactivateEntity: vi.fn(),
   listCategories: vi.fn(),
   listEntities: vi.fn(),
+  updateCategory: vi.fn(),
+  updateEntity: vi.fn(),
 }));
 
 vi.mock("./components/ScheduleCalendar", () => ({
@@ -63,7 +79,7 @@ describe("App", () => {
 
     expect(screen.getByText("API controleren")).toBeInTheDocument();
     expect(await screen.findByText("API online")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Planning calendar" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Planning calendar" })).toBeInTheDocument();
     expect(screen.getByTestId("calendar")).toHaveTextContent("0 events");
     expect(screen.getByText("Nog geen bookings")).toBeInTheDocument();
   });
@@ -75,11 +91,11 @@ describe("App", () => {
     await screen.findByRole("heading", { name: "Planning" });
     await user.click(screen.getByRole("link", { name: "Entiteiten" }));
     expect(await screen.findByRole("heading", { name: "Entiteiten" })).toBeInTheDocument();
-    expect(screen.getByText("Nog geen entiteiten")).toBeInTheDocument();
+    expect(await screen.findByText("Geen entiteiten gevonden")).toBeInTheDocument();
 
     await user.click(screen.getByRole("link", { name: "Configuratie" }));
     expect(await screen.findByRole("heading", { name: "Configuratie" })).toBeInTheDocument();
-    expect(screen.getByText("Nog geen configuratie")).toBeInTheDocument();
+    expect(await screen.findByText("Nog geen configuratie")).toBeInTheDocument();
   });
 
   it("recovers the connection indicator without reloading the page", async () => {
