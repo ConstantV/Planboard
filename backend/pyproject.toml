@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Planboard scheduling API"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic",
     "fastapi",
     "pydantic",
     "pydantic-settings",

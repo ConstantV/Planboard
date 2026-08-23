@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Text
+from sqlalchemy import Boolean, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -19,5 +19,6 @@ class Client(IdMixin, TimestampMixin, Base):
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
 
     bookings: Mapped[list[Booking]] = relationship(back_populates="client")

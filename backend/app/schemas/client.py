@@ -6,6 +6,7 @@ class ClientCreate(ApiModel):
     email: str | None = None
     phone: str | None = None
     notes: str | None = None
+    is_archived: bool = False
 
 
 class ClientRead(ClientCreate, PersistedModel):

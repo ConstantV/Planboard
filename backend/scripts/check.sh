@@ -3,3 +3,4 @@ set -euo pipefail
 
 uv run ruff check .
 uv run pytest
+uv run alembic check

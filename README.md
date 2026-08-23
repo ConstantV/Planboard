@@ -35,6 +35,7 @@ Planboard/
 cd backend
 cp .env.example .env
 uv sync
+uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
@@ -70,8 +71,8 @@ bun run check
 ## Current scope
 
 - FastAPI application with a health endpoint
-- SQLite database bootstrap
-- Initial `Item`, `Client`, and `Booking` models
+- Alembic-managed SQLite database schema
+- Validated `ItemCategory`, `Item`, `Client`, and `Booking` models
 - Booking-overlap query as the first scheduling business rule
 - React shell with an editable FullCalendar week view
 - Backend connectivity status in the UI
