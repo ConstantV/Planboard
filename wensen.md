@@ -14,3 +14,12 @@ of in geval van een auto merk type en kenteken.
 verder wil ik de mogelijkheid (configureerbaar) om in de kalender view de verschillende items (of medewerkers) met verschillende kleuren aan te geven.
 
 de software moet zo flexeibel zijn dat dit allemaal kan Wellicht is een json data type daar geschilt voor?
+---
+
+de tijdsduur kan in bepaalde gevallen afhankelijk zijn van de soort afspraak (of bewerking) in geval van een kapperszaak bijv scheren / knippen / wassen / extensions etc mogelijk willen we een (semi) vaste tijdsduur in kunnen stellen per soort bewerking. 
+
+Ik denk dat we ook een view willen hebben waarbij we de bezetting van een bepaalde exclusieve resource willen zien (kapster / stoel / werkbank ....)
+
+verder moet het mogelijk zijn om te zien welke resources of verhuur items vrij zijn op een bepaalde dag / tijd
+
+

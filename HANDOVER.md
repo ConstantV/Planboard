@@ -1,15 +1,16 @@
 # Planboard handover
 
-Last updated: 2026-08-23  
+Last updated: 2026-08-24  
 Repository: `https://github.com/ConstantV/Planboard.git`  
 Branch: `main`  
-Last pushed commit: `b91a883 docs: add configuration user guide`
+Last pushed commit: step-8 implementation `fc5cb0b feat: add service-aware calendar booking workflow`
+followed by the step-8 documentation commit
 
 ## 1. Read this first
 
-Planboard is complete through **development step 7**. The next implementation increment is
-**step 8 — Calendar booking workflow**. Do not start step 9 drag-and-drop or step 10 shared
-calendar/list filtering before step 8 passes its complete test and acceptance gate.
+Planboard is complete through **development step 8**. The next implementation increment is
+**step 9 — Drag-and-drop rescheduling and conflict recovery**. Do not start step 10 shared
+occupancy/availability filtering before step 9 passes its complete test and acceptance gate.
 
 The authoritative documents are:
 
@@ -23,7 +24,8 @@ The authoritative documents are:
 
 ## 2. Important workspace state
 
-At handover time, the tracked repository is synchronized with `origin/main` at `b91a883`.
+At handover time, the tracked repository is synchronized with `origin/main` at the step-8
+implementation commit `fc5cb0b` and its follow-up documentation commit.
 
 There is one untracked file:
 
@@ -145,6 +147,28 @@ Key commits: `d123f53`, `743dd2d`.
 
 Key commits: `608fc0a`, `fbdf151`.
 
+### Step 8 — service-aware calendar booking workflow
+
+- `BookingType` model: scoped per `booking_scope`, optional positive default duration in minutes,
+  and a `suggested` or `fixed` duration mode; `GET/POST/PATCH /api/booking-types` plus deactivate;
+  key and scope are immutable once Bookings reference the type.
+- `Booking.booking_type_id` (nullable, `ON DELETE SET NULL`) with serialization on every Booking
+  response; create/update validate scope match, active type, and exact fixed duration.
+- Presets install sensible BookingTypes (hair salon: wassen/knippen/scheren/extensions; rental:
+  verhuur; workshop: diagnose/reparatie).
+- Configuration page manages BookingTypes with duration chips and archive actions.
+- Planning page loads Bookings for FullCalendar's visible range via `datesSet`, supports slot
+  selection and header-button creation, derives participant selectors from scope roles, shows
+  detail/edit/cancel flows, and renders structured conflict details from the API.
+- Booking form auto-calculates the end time from the selected type: suggested durations stay
+  editable, fixed durations lock the end input and recompute on start changes.
+- First Playwright end-to-end suite (`bun run test:e2e` in `frontend/`): installs the salon
+  preset, creates Entities, and drives create → inspect → edit → cancel against a throwaway
+  SQLite database on ports 8011/5179. `alembic/env.py` honours `PLANBOARD_DATABASE_URL` so tests
+  and E2E never touch the development database.
+
+Key commit: `fc5cb0b`.
+
 ### Documentation
 
 - Development plan and architecture updated after every completed step.
@@ -157,13 +181,13 @@ Key commit: `b91a883`.
 
 Last complete gate result:
 
-- Backend: **57/57 tests passed**, Ruff/checks passed, Alembic drift check passed.
-- Frontend: **25/25 tests across 8 files passed**, ESLint passed, TypeScript passed, Vite production
-  build passed.
-- Live HTTP acceptance passed for `/`, `/planning`, `/entities`, `/configuration`, management API
-  endpoints, Booking API, health endpoint, and CORS preflight.
+- Backend: **64/64 tests passed**, Ruff/checks passed, Alembic drift check passed.
+- Frontend: **38/38 tests across 10 files passed**, ESLint passed, TypeScript passed, Vite
+  production build passed.
+- Playwright E2E: **1/1 booking lifecycle test passed** against an isolated throwaway database.
+- Three-domain Booking API acceptance passed (hair salon, rental, repair workshop).
 
-Run the gates again before the first step-8 change and before committing:
+Run the gates again before the first step-9 change and before committing:
 
 ```bash
 cd backend
@@ -178,6 +202,13 @@ Run the three-domain Booking API acceptance when Booking behavior changes:
 ```bash
 cd backend
 uv run python -m scripts.verify_booking_api
+```
+
+Run the browser-level lifecycle test when calendar or booking behavior changes:
+
+```bash
+cd frontend
+bun run test:e2e
 ```
 
 ## 6. Starting the application
@@ -231,6 +262,7 @@ test assumption.
 | Configuration API | `backend/app/api/routes/configuration.py` |
 | Entity/category API | `backend/app/api/routes/entities.py`, `categories.py` |
 | Booking API | `backend/app/api/routes/bookings.py` |
+| BookingType API | `backend/app/api/routes/booking_types.py` |
 | Models | `backend/app/models/` |
 | API schemas | `backend/app/schemas/` |
 | Entity validation/filtering | `backend/app/services/entity_service.py` |
@@ -247,7 +279,10 @@ test assumption.
 | Booking API | `frontend/src/api/bookings.ts` |
 | Planning page | `frontend/src/pages/PlanningPage.tsx` |
 | FullCalendar wrapper | `frontend/src/components/ScheduleCalendar.tsx` |
+| Booking form/details | `frontend/src/components/booking/BookingForm.tsx`, `BookingDetails.tsx` |
+| BookingType API client | `frontend/src/api/bookingTypes.ts` |
 | Booking → event mapping | `frontend/src/mappers/booking.ts` |
+| Playwright E2E | `frontend/e2e/`, `frontend/playwright.config.ts` |
 | Entity management | `frontend/src/pages/EntitiesPage.tsx`, `components/management/EntityForm.tsx` |
 | Configuration management | `frontend/src/pages/ConfigurationPage.tsx`, `components/management/` |
 | Shared async/mutation states | `frontend/src/hooks/`, `components/PageState.tsx`, `MutationFeedback.tsx` |
@@ -255,116 +290,77 @@ test assumption.
 
 ## 8. Existing Booking frontend contract
 
-The typed frontend client already exposes:
+The typed frontend client exposes:
 
-- `listBookings(filters)`
+- `listBookings(filters)` with `range_start`/`range_end` for visible-range loading
 - `getBooking(id)`
 - `createBooking(input)`
 - `updateBooking(id, input)`
 - `cancelBooking(id)`
 - `deleteBooking(id)`
 
-`bookingToEvent()` already maps:
+`bookingToEvent()` maps:
 
 - Booking ID;
 - participant names into the title;
 - start/end timestamps;
 - resolved color from the first exclusive participant, falling back to the first participant;
 - cancelled status into a CSS class;
-- status, notes, and participants into `extendedProps`.
+- status, notes, participants, and the BookingType into `extendedProps`.
 
-The current Planning page calls `listBookings()` without a visible range and only supports manual
-refresh. `ScheduleCalendar` supplies month/week/day views and the interaction plugin, but no select,
-event-click, create, edit, or cancellation callbacks are wired yet.
+The Planning page wires FullCalendar through `ScheduleCalendar` callbacks: `datesSet` drives
+visible-range reloads, `select` opens a prefilled create form, and `eventClick` opens the detail
+panel with edit and cancel actions. `BookingForm` validates scope, interval, required roles, and
+BookingType duration rules before submitting; `BookingDetails` renders participants, interval,
+type/duration, status, and notes.
 
-## 9. Next increment: step 8
+## 9. Next increment: step 9
 
 ### Goal
 
-Create, inspect, edit, and cancel Bookings entirely from the calendar without using OpenAPI or
-direct API calls.
+Make calendar rescheduling fast without allowing inconsistent data.
 
 ### Required behavior
 
-1. Query Bookings for FullCalendar's visible range using timezone-aware `range_start` and
-   `range_end`.
-2. Allow selecting a time slot to open a Booking create form.
-3. Choose one booking scope, then render participant selectors from the active roles in that scope.
-4. Enforce required roles and `allow_multiple` in the form before submission; backend remains
-   authoritative.
-5. Load eligible active Entities per role's EntityType.
-6. Support start, end, status, notes, and role-bound participants.
-7. Clicking an event opens detail with participant names/roles, interval, status, and notes.
-8. Support edit and cancel with confirmation and structured conflict/validation/offline feedback.
-9. Refresh only the affected calendar data after success. A visible-range reload is acceptable for
-   the MVP; a new cache dependency is not required unless it clearly simplifies invalidation.
-10. Keep cancelled events understandable and non-blocking.
-
-### Suggested frontend decomposition
-
-Keep components small and reuse step-7 form primitives:
-
-```text
-frontend/src/components/booking/
-├── BookingDialog.tsx
-├── BookingForm.tsx
-├── BookingParticipantFields.tsx
-└── BookingDetails.tsx
-```
-
-Likely state ownership:
-
-- `PlanningPage`: visible range, selected slot/event, server loading/reload, mutation feedback.
-- `ScheduleCalendar`: FullCalendar adapter and callback forwarding only.
-- `BookingForm`: scope selection, role-derived participant fields, field validation, payload.
-- `BookingDetails`: read-only summary plus edit/cancel actions.
-
-Do not introduce drag-and-drop persistence in this increment; it belongs to step 9.
+1. Persist FullCalendar event drops and duration changes through the Booking API while checking
+   every exclusive participant.
+2. Use optimistic feedback only when it can be rolled back reliably.
+3. Restore the original calendar event after a rejected change.
+4. Display a clear conflict message with the blocked interval, Entity, and role.
+5. Prevent duplicate submissions during a pending update.
+6. Keep fixed-duration BookingTypes consistent when an event is resized (the backend stays
+   authoritative; expect resize rejection or auto-adjustment for fixed-duration types).
 
 ### Automated tests required by the plan
 
-- visible-range requests from FullCalendar;
-- Booking-to-event mapping for status, participants, roles, and resolved color;
-- create, edit, cancel, loading, empty, conflict, validation, and offline states;
-- participant form validation and exact submitted payload;
-- timezone conversion at the API boundary;
-- first Playwright end-to-end lifecycle: create → inspect → edit → cancel.
-
-Playwright is not currently configured. Add it deliberately as part of step 8, keep its database
-isolated, and document the command. Do not let an E2E test mutate the developer database.
-
-### Manual acceptance
-
-1. Create or reuse the necessary Entities for one preset.
-2. Create a multi-participant Booking from a calendar slot.
-3. Open and inspect it.
-4. Edit its interval, notes, status, or participants.
-5. Cancel it.
-6. Confirm week and day views remain correct.
-7. Confirm no direct API use was required.
+- successful move and resize operations;
+- conflict rejection and visual rollback;
+- network failure, repeated drops, and stale booking updates;
+- Playwright coverage for successful and conflicting drag-and-drop flows.
 
 ### Definition of done
 
-- The complete Booking lifecycle works end to end from the calendar.
+- Drag-and-drop persistence works end to end with conflict recovery.
 - Backend and frontend full gates pass.
 - Booking API scenario acceptance passes.
-- Playwright lifecycle passes against an isolated test database.
-- Manual week/day acceptance passes.
-- `docs/development-plan.md`, `docs/architecture.md`, README/current scope, LifeOS project note, and
-  this handover are updated.
-- Implementation and documentation are committed separately and pushed to `origin/main`.
+- Playwright drag-and-drop coverage passes against an isolated test database.
+- `docs/development-plan.md`, `docs/architecture.md`, LifeOS project note, and this handover are
+  updated; implementation and documentation are committed separately and pushed to `origin/main`.
 
 ## 10. Known limitations and cautions
 
-- Calendar Booking create/edit/detail/cancel UI is not built yet; that is step 8.
 - Drag-and-drop/resizing is intentionally not persisted yet; that is step 9.
-- Shared calendar/list filters and availability are intentionally step 10.
+- Shared occupancy views, free-resource search, and calendar/list filters are intentionally step 10.
+- BookingType key and booking scope cannot change while Bookings reference the type (HTTP 422);
+  archive such types instead.
+- A fixed-duration BookingType without a duration is rejected everywhere; the API remains
+  authoritative when the form is bypassed.
 - Authentication/authorization and multi-tenancy are not part of the single-user MVP.
 - Sensitive identity fields are intentionally absent pending explicit security, access, encryption,
   retention, export, and deletion decisions.
 - Automated control of the in-app “Claude” browser tab was unavailable because the browser service
-  rejected the connection. Step-7 UI is covered by DOM interaction tests and live HTTP checks, but
-  a human visual/mobile smoke check remains useful.
+  rejected the connection. The step-8 UI is now covered by the Playwright suite, but a human
+  visual/mobile smoke check remains useful.
 - The user guide currently uses four clearly labelled SVG interface reconstructions rather than
   captured browser screenshots. Replace them later when browser automation is available.
 - Existing UI copy sometimes uses `entiteitType` capitalization. This is cosmetic and can be

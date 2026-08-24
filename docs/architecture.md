@@ -16,7 +16,13 @@ multi-tenant deployment without changing the domain contract.
 - `EntityCategory` provides an optional hierarchy and category-level color.
 - `RoleDefinition` defines how an EntityType participates in a Booking and whether it is exclusive.
 - `BookingParticipant` connects any number of Entities to one Booking through configured roles.
-- `Booking` owns the timezone-safe interval, status, and notes.
+- `BookingType` defines a configurable appointment, treatment, rental, or activity kind within one
+  `booking_scope`, carrying an optional positive default duration in minutes and a duration mode:
+  `suggested` proposes an end time the user may adjust, `fixed` requires the interval to match the
+  default duration exactly on create and on interval-changing updates. A BookingType in use cannot
+  change key or scope, and deactivation is preferred over deletion.
+- `Booking` owns the timezone-safe interval, status, notes, and an optional BookingType reference
+  (`ON DELETE SET NULL`).
 
 This structure supports salon, rental, and repair-workshop presets without industry-specific tables
 or code paths.
@@ -29,8 +35,8 @@ requirements for a Booking.
 ## Management API
 
 The `/api` management surface provides lifecycle endpoints for EntityTypes, FieldDefinitions,
-RoleDefinitions, presets, categories, and Entities. Records with historical relevance are
-deactivated instead of deleted. Responses use one structured error envelope with a stable code,
+RoleDefinitions, BookingTypes, presets, categories, and Entities. Records with historical relevance
+are deactivated instead of deleted. Responses use one structured error envelope with a stable code,
 message, and optional details.
 
 Entity queries can combine EntityType, category (including descendants), active state, free-text
@@ -46,13 +52,22 @@ that classifies offline, validation, conflict, and server errors. Shared resourc
 components provide loading, empty, retry, and recovery behaviour consistently.
 
 FullCalendar receives only mapped Booking API responses; the temporary demo event and non-persisted
-editing behaviour have been removed. A dedicated query/cache dependency is deferred until the
-create/update flows in later steps introduce meaningful invalidation and optimistic-update needs.
+editing behaviour have been removed. The Planning page loads Bookings for FullCalendar's visible
+date range (`datesSet` → timezone-aware `range_start`/`range_end`), opens a prefilled create form
+on slot selection, and exposes detail, edit, and cancel flows on event click. After a successful
+mutation only the visible range reloads; a dedicated query/cache dependency remains deferred until
+drag-and-drop (step 9) introduces meaningful invalidation and optimistic-update needs.
+
+Browser-level confidence comes from a Playwright suite (`frontend/e2e/`, `bun run test:e2e`) that
+starts the API with a throwaway SQLite file and the frontend on dedicated ports. Alembic honours
+`PLANBOARD_DATABASE_URL`, so migrations target that temporary database and never the development
+database.
 
 ## Frontend management interface
 
 The configuration and Entity pages form a browser-based administration layer over the management
-API. Reusable controlled forms own local validation, while one mutation hook normalizes pending,
+API, including BookingType duration rules per booking scope. Reusable controlled forms own local
+validation, while one mutation hook normalizes pending,
 success, validation, conflict, offline, and server feedback. Successful mutations reload the small
 affected management dataset; optimistic caching remains unnecessary for the single-user MVP.
 

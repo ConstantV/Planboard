@@ -4,7 +4,11 @@
 
 This plan turns the product roadmap into small, testable delivery steps. Each step produces a usable increment, is implemented completely, and passes its verification gate before work starts on the next step.
 
-The MVP is complete when an administrator can configure planning-entity types and fields, a user can maintain categorized entities, Bookings can connect multiple role-based entities, exclusive resources cannot be double-booked, and calendar/list views share filters and configurable colors.
+The MVP is complete when an administrator can configure planning-entity types, fields, and
+appointment/activity types with duration rules; a user can maintain categorized entities;
+Bookings can connect multiple role-based entities; exclusive resources cannot be double-booked;
+and calendar, list, occupancy, and availability views share consistent planning data, filters, and
+configurable colors.
 
 ## Working agreement
 
@@ -59,6 +63,8 @@ The requirements in `wensen.md` broaden Planboard from a fixed Item + Client sch
 - `Entity`: one concrete person or object with stable core fields and validated custom values.
 - `FieldDefinition`: an EntityType-specific field definition with datatype, required, searchable, filterable, and display-order settings.
 - `BookingParticipant`: a role-based link from a Booking to one or more Entities.
+- `BookingType`: a configurable appointment, treatment, rental, or activity definition scoped to a
+  workflow, with an optional default duration and a duration mode of suggested or fixed.
 - `exclusive`: a role/type setting that determines whether overlap protection applies to an Entity.
 - Configurable calendar colors with precedence: Entity, then category, then EntityType, then the application default.
 
@@ -76,9 +82,9 @@ Custom values use relational, datatype-specific indexed columns because filterin
 | 5 | Multi-entity Booking API and conflict protection | Complete | Backend: Ruff + 55 tests + Alembic drift check; frontend: lint + 4 tests + build; three-scenario API acceptance; live HTTP/OpenAPI checks | `fcb3d72` |
 | 6 | Frontend application shell and API integration | Complete | Backend: Ruff + 57 tests + Alembic drift check; frontend: lint + 17 tests + build; route/DOM acceptance; live routes, APIs, and CORS HTTP 200 | `d123f53` |
 | 7 | Entity and configuration user interface | Complete | Backend: Ruff + 57 tests + Alembic drift check; frontend: lint + 25 tests + build; live routes, APIs, and CORS HTTP 200 | `608fc0a` |
-| 8 | Calendar booking workflow | Planned | — | — |
+| 8 | Service-aware calendar booking workflow | Complete | Backend: Ruff + 64 tests + Alembic drift check; frontend: ESLint + 38 tests + build; three-scenario API acceptance; Playwright E2E booking lifecycle | `fc5cb0b` |
 | 9 | Drag-and-drop rescheduling and conflict recovery | Planned | — | — |
-| 10 | Availability, shared filtering, colors, list view, and operational quality | Planned | — | — |
+| 10 | Resource occupancy, availability, shared filtering, colors, list view, and operational quality | Planned | — | — |
 | 11 | Local release and pilot readiness | Planned | — | — |
 
 ## Step 0 — Reproducible local environment
@@ -370,35 +376,51 @@ Allow a non-technical administrator to configure EntityTypes and fields, and all
   covered by DOM interaction tests and live HTTP checks; visual viewport acceptance remains a
   hands-on smoke check before pilot delivery.
 
-## Step 8 — Calendar booking workflow
+## Step 8 — Service-aware calendar booking workflow
 
 ### Goal
 
-Create, inspect, edit, and cancel bookings from the calendar.
+Configure appointment/activity types and create, inspect, edit, and cancel duration-aware Bookings
+from the calendar.
 
 ### Execute
 
 - Load Bookings for the calendar's visible date range.
 - Map booking status, participants, roles, and resolved configurable color into calendar events.
+- Add a configurable `BookingType` (appointment, treatment, rental, or activity) scoped to a
+  `booking_scope`, with an optional default duration and a `suggested` or `fixed` duration mode.
+- Add management UI for BookingTypes and persist the selected type on a Booking without hard-coding
+  salon, rental, or workshop terminology.
 - Add booking creation from a selected time slot.
+- When a BookingType is selected, calculate the proposed end time from its default duration;
+  allow users to override suggested durations and enforce fixed durations consistently in the API
+  and UI.
 - Add event detail, edit, and cancellation flows.
 - Refresh only affected data after a successful mutation.
 
 ### Automated tests
 
 - Test calendar-event mapping and visible-range requests.
+- Test BookingType configuration, workflow scoping, lifecycle behaviour, and suggested versus fixed
+  duration validation at service and API level.
 - Test creation, editing, cancellation, loading, empty, and error states.
+- Test type selection, automatic end-time calculation, suggested-duration override, and fixed-duration
+  enforcement in the booking form.
 - Test timezone conversion at the API boundary.
 - Add the first Playwright end-to-end booking lifecycle test.
 
 ### Manual acceptance
 
-- Create the required Entities, then create, edit, and cancel a multi-participant Booking entirely in the UI.
+- Configure salon treatments such as washing, cutting, shaving, and extensions with different
+  duration rules.
+- Create the required Entities, then create, edit, and cancel typed, multi-participant Bookings
+  entirely in the UI; confirm their initial durations follow the selected treatment or activity.
 - Confirm the calendar remains correct across week and day views.
 
 ### Done when
 
-- The complete booking lifecycle works end to end without direct API use.
+- The complete typed Booking lifecycle, including configurable duration behaviour, works end to end
+  without direct API use.
 
 ## Step 9 — Drag-and-drop rescheduling and conflict recovery
 
@@ -430,11 +452,12 @@ Make calendar rescheduling fast without allowing inconsistent data.
 
 - Drag-and-drop is persistent, conflict-safe, and recoverable after failures.
 
-## Step 10 — Availability, shared filtering, colors, list view, and operational quality
+## Step 10 — Resource occupancy, availability, shared filtering, colors, list view, and operational quality
 
 ### Goal
 
-Make the scheduling board useful during daily operations and for focused planning queries.
+Make the scheduling board useful during daily operations, resource-allocation decisions, and
+focused planning queries.
 
 ### Execute
 
@@ -442,10 +465,16 @@ Make the scheduling board useful during daily operations and for focused plannin
 - Combine active filters cumulatively and provide a clear-all action plus visible active-filter indicators.
 - Make parent-category filters include Entities in descendant categories unless the user explicitly selects only one category level.
 - Keep the calendar as the default main view and add a list view based on the exact same filtered booking result set.
+- Add a focused occupancy view for one selected exclusive Entity, such as a hairdresser, chair,
+  workbench, vehicle, or rental item, showing its Bookings and free gaps for the selected period.
 - Preserve active filters, date range, and relevant selection state when switching between calendar and list views.
 - Show only matching Bookings and corresponding Entities in both views; show a clear empty state when nothing matches.
 - Apply resolved Entity/category/EntityType colors consistently in calendar, list, legend, and accessible non-color indicators.
-- Show availability for configured exclusive Entities in the selected date range.
+- Add an availability query for a requested start and end time that returns compatible exclusive
+  Entities that are free for the entire interval, filterable by role, EntityType, category, and
+  configured properties.
+- Reuse the same overlap semantics as Booking conflict protection, including half-open intervals,
+  cancelled Bookings, inactive Entities, and exclusion of the current Booking while editing.
 - Add deliberate loading performance for realistic data volumes.
 - Add structured backend logging and safe user-facing errors.
 - Review accessibility, responsiveness, timezone behaviour, and data validation.
@@ -454,7 +483,12 @@ Make the scheduling board useful during daily operations and for focused plannin
 
 ### Automated tests
 
-- Test generated filters independently, meaningful combinations, clear-all behaviour, descendant-category/custom-field filtering, and per-role availability calculations.
+- Test generated filters independently, meaningful combinations, clear-all behaviour,
+  descendant-category/custom-field filtering, and per-role availability calculations.
+- Test focused occupancy results and free-gap boundaries for one exclusive Entity across day and
+  week ranges.
+- Test free-resource searches for fully free, partially occupied, adjacent, cancelled, inactive,
+  role/type-incompatible, and edit-exclusion cases.
 - Test that calendar and list views contain the same matching Bookings and that switching views preserves filter state.
 - Test empty results, archived entities, special characters, and case-insensitive free-text matching.
 - Add a realistic dataset test for range queries.
@@ -466,15 +500,22 @@ Make the scheduling board useful during daily operations and for focused plannin
 ### Manual acceptance
 
 - Complete a realistic hair-salon scenario by filtering appointments by customer, hairdresser, and station, then switch between calendar and list views.
+- Select one hairdresser or chair and verify its occupied periods and free gaps; then choose an
+  appointment interval and find all compatible free hairdressers or chairs.
 - Complete a realistic rental scenario by filtering Entities through a parent category, custom property, and participant role.
+- Find rental items that are free for a specified pickup and return interval.
 - Complete a repair-workshop scenario by filtering on workpiece, mechanic, and workbench.
+- Inspect one workbench's occupancy and find a free compatible workbench for a specified repair
+  interval.
 - Confirm that active filters remain unchanged after switching views and that only matching Bookings and Entities are visible.
 - Confirm configured colors resolve consistently; if in pilot scope, generate a rental contract from a Booking.
 - Verify the core workflow on desktop and tablet-size layouts.
 
 ### Done when
 
-- The board supports all three realistic scenarios, shared generated filtering, configured colors, and calendar/list switching without direct technical intervention.
+- The board supports all three realistic scenarios, focused resource occupancy, interval-based
+  free-resource searches, shared generated filtering, configured colors, and calendar/list
+  switching without direct technical intervention.
 
 ## Step 11 — Local release and pilot readiness
 
@@ -538,3 +579,5 @@ Add one row after completing or blocking a step.
 | 2026-08-23 | 4 | Complete | Backend: Ruff + 47 Pytest tests + `alembic check`; frontend: ESLint + 4 Vitest tests + production build; backend, Swagger, and client HTTP 200; 16 management paths and 24 operations in live OpenAPI | Added structured errors and lifecycle APIs for EntityTypes, fields, roles, presets, categories, and Entities; search and combinable typed/category filters included in `c05a0a4` |
 | 2026-08-23 | 5 | Complete | Backend: Ruff + 55 Pytest tests + `alembic check`; frontend: ESLint + 4 Vitest tests + production build; salon/rental/workshop Booking API acceptance; backend, Booking list, Swagger, and client HTTP 200; 30 live OpenAPI operations | Added scoped required roles, atomic overlap checks, structured multi-Entity conflict details, lifecycle rules, and shared Booking filters in `fcb3d72` |
 | 2026-08-23 | 6 | Complete | Backend: Ruff + 57 Pytest tests + `alembic check`; frontend: ESLint + 17 Vitest tests + production build; planning/entities/configuration route and DOM acceptance; all live routes, API sources, and both local CORS origins HTTP 200 | Replaced demo data with typed server-backed plumbing, React Router shell, shared loading/empty/offline/validation/conflict/error states, retry and health recovery in `d123f53`; no query library until mutation caching justifies it |
+| 2026-08-24 | Requirements expansion | Duration per appointment/activity type plus focused resource occupancy and interval availability incorporated | Product-model and phased-plan review | Add configurable BookingTypes and duration rules in step 8; deliver occupancy and free-resource search in step 10 using existing exclusivity semantics |
+| 2026-08-24 | 8 | Complete | Backend: Ruff + 64 Pytest tests + `alembic check`; frontend: ESLint + 38 Vitest tests + production build; salon/rental/workshop Booking API acceptance; Playwright E2E (preset → Entities → create/edit/cancel typed Booking) against a throwaway database | BookingType with suggested/fixed duration modes enforced in API and form; calendar does visible-range loading, slot creation, detail/edit/cancel; Alembic honours `PLANBOARD_DATABASE_URL`; implementation in `fc5cb0b` |
