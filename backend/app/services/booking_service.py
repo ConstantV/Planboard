@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import Select, or_, select
@@ -12,12 +12,18 @@ from app.models import (
     Booking,
     BookingParticipant,
     BookingStatus,
+    BookingType,
+    DurationMode,
     Entity,
     EntityCategory,
     RoleDefinition,
 )
 from app.services.entity_service import contains_pattern, resolve_entity_color
-from app.services.management_service import category_descendant_ids, list_entities
+from app.services.management_service import (
+    category_descendant_ids,
+    list_entities,
+    serialize_booking_type,
+)
 
 
 class BookingValidationError(ValueError):
@@ -40,6 +46,7 @@ def begin_booking_write(session: Session) -> None:
 
 def booking_statement() -> Select:
     return select(Booking).options(
+        selectinload(Booking.booking_type),
         selectinload(Booking.participants).selectinload(BookingParticipant.role_definition),
         selectinload(Booking.participants)
         .selectinload(BookingParticipant.entity)
@@ -115,6 +122,36 @@ def resolve_participants(
     if missing_roles:
         raise BookingValidationError(f"missing required roles: {', '.join(sorted(missing_roles))}")
     return resolved
+
+
+def participant_scope(participants: list[ParticipantSpec]) -> str:
+    return participants[0].role.booking_scope
+
+
+def validate_booking_type(
+    booking_type: BookingType,
+    *,
+    scope: str,
+    start_at: datetime,
+    end_at: datetime,
+) -> None:
+    if not booking_type.is_active:
+        raise BookingValidationError(f"BookingType is inactive: {booking_type.key}")
+    if booking_type.booking_scope != scope:
+        raise BookingValidationError(
+            f"BookingType {booking_type.key} does not belong to booking_scope {scope}"
+        )
+    if booking_type.duration_mode is DurationMode.FIXED:
+        if booking_type.default_duration_minutes is None:
+            raise BookingValidationError(
+                f"BookingType {booking_type.key} is fixed but has no default duration"
+            )
+        expected = timedelta(minutes=booking_type.default_duration_minutes)
+        if end_at - start_at != expected:
+            raise BookingValidationError(
+                f"BookingType {booking_type.key} requires a duration of exactly "
+                f"{booking_type.default_duration_minutes} minutes"
+            )
 
 
 def find_booking_conflicts(
@@ -288,6 +325,11 @@ def serialize_booking(booking: Booking) -> dict[str, Any]:
         "end_at": booking.end_at,
         "status": booking.status,
         "notes": booking.notes,
+        "booking_type": (
+            serialize_booking_type(booking.booking_type)
+            if booking.booking_type is not None
+            else None
+        ),
         "participants": [
             {
                 "id": participant.id,

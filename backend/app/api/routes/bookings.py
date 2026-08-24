@@ -10,7 +10,7 @@ from app.api.routes.categories import load_category
 from app.api.routes.configuration import load_entity_type
 from app.api.routes.entities import load_entity
 from app.api.routes.helpers import parse_field_filters
-from app.models import Booking, BookingParticipant, BookingStatus, RoleDefinition
+from app.models import Booking, BookingParticipant, BookingStatus, BookingType, RoleDefinition
 from app.schemas.booking import BookingCreate, BookingRead, BookingUpdate
 from app.services.booking_service import (
     BookingValidationError,
@@ -18,9 +18,11 @@ from app.services.booking_service import (
     booking_statement,
     find_booking_conflicts,
     list_bookings,
+    participant_scope,
     replace_participants,
     resolve_participants,
     serialize_booking,
+    validate_booking_type,
     validate_interval,
 )
 from app.services.entity_service import EntityConfigurationError
@@ -33,6 +35,13 @@ def load_booking(session: Session, booking_id: str) -> Booking:
     if booking is None:
         raise ApiError(404, "booking_not_found", "Booking does not exist")
     return booking
+
+
+def load_booking_type(session: Session, booking_type_id: str) -> BookingType:
+    booking_type = session.get(BookingType, booking_type_id)
+    if booking_type is None:
+        raise ApiError(404, "booking_type_not_found", "BookingType does not exist")
+    return booking_type
 
 
 def raise_conflict(conflicts: list[dict]) -> None:
@@ -102,6 +111,18 @@ def create_booking(payload: BookingCreate, session: DbSession) -> dict:
     try:
         begin_booking_write(session)
         participants = resolve_participants(session, payload.participants)
+        booking_type = (
+            load_booking_type(session, payload.booking_type_id)
+            if payload.booking_type_id is not None
+            else None
+        )
+        if booking_type is not None:
+            validate_booking_type(
+                booking_type,
+                scope=participant_scope(participants),
+                start_at=payload.start_at,
+                end_at=payload.end_at,
+            )
         if payload.status is not BookingStatus.CANCELLED:
             raise_conflict(
                 find_booking_conflicts(
@@ -116,6 +137,7 @@ def create_booking(payload: BookingCreate, session: DbSession) -> dict:
             end_at=payload.end_at,
             status=payload.status,
             notes=payload.notes,
+            booking_type=booking_type,
             participants=[
                 BookingParticipant(
                     entity=participant.entity,
@@ -148,15 +170,35 @@ def update_booking(
     booking = load_booking(session, booking_id)
     changes = payload.model_dump(exclude_unset=True)
     participant_payloads = changes.pop("participants", None)
+    booking_type_changed = "booking_type_id" in changes
+    booking_type_id = changes.pop("booking_type_id", None)
     start_at = changes.get("start_at", booking.start_at)
     end_at = changes.get("end_at", booking.end_at)
     target_status = changes.get("status", booking.status)
+    interval_changed = start_at != booking.start_at or end_at != booking.end_at
     try:
         validate_interval(start_at, end_at)
         if participant_payloads is not None:
             participants = resolve_participants(session, payload.participants or [])
         else:
             participants = resolve_participants(session, booking.participants)
+        if booking_type_changed:
+            target_booking_type = (
+                load_booking_type(session, booking_type_id)
+                if booking_type_id is not None
+                else None
+            )
+        else:
+            target_booking_type = booking.booking_type
+        if target_booking_type is not None and (
+            booking_type_changed or participant_payloads is not None or interval_changed
+        ):
+            validate_booking_type(
+                target_booking_type,
+                scope=participant_scope(participants),
+                start_at=start_at,
+                end_at=end_at,
+            )
         if target_status is not BookingStatus.CANCELLED:
             raise_conflict(
                 find_booking_conflicts(
@@ -169,6 +211,8 @@ def update_booking(
             )
         for key, value in changes.items():
             setattr(booking, key, value)
+        if booking_type_changed:
+            booking.booking_type = target_booking_type
         if participant_payloads is not None:
             replace_participants(session, booking, participants)
         session.commit()

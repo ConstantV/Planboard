@@ -18,6 +18,7 @@ export function bookingToEvent(booking: Booking): EventInput {
       status: booking.status,
       notes: booking.notes,
       participants: booking.participants,
+      booking_type: booking.booking_type,
     },
   };
 }

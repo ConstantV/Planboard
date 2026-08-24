@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
 import { listBookings } from "./api/bookings";
+import { listBookingTypes } from "./api/bookingTypes";
 import { listEntityTypes, listRoleDefinitions } from "./api/configuration";
 import { listCategories, listEntities } from "./api/entities";
 import { getHealth } from "./api/health";
@@ -15,6 +16,17 @@ vi.mock("./api/health", () => ({
 
 vi.mock("./api/bookings", () => ({
   listBookings: vi.fn(),
+  createBooking: vi.fn(),
+  updateBooking: vi.fn(),
+  cancelBooking: vi.fn(),
+}));
+
+vi.mock("./api/bookingTypes", () => ({
+  listBookingTypes: vi.fn(),
+  createBookingType: vi.fn(),
+  updateBookingType: vi.fn(),
+  deactivateBookingType: vi.fn(),
+  getBookingType: vi.fn(),
 }));
 
 vi.mock("./api/configuration", () => ({
@@ -51,6 +63,7 @@ vi.mock("./components/ScheduleCalendar", () => ({
 
 const mockedGetHealth = vi.mocked(getHealth);
 const mockedListBookings = vi.mocked(listBookings);
+const mockedListBookingTypes = vi.mocked(listBookingTypes);
 const mockedListEntityTypes = vi.mocked(listEntityTypes);
 const mockedListRoleDefinitions = vi.mocked(listRoleDefinitions);
 const mockedListEntities = vi.mocked(listEntities);
@@ -68,6 +81,7 @@ describe("App", () => {
   beforeEach(() => {
     mockedGetHealth.mockReset().mockResolvedValue({ status: "ok", service: "planboard-api" });
     mockedListBookings.mockReset().mockResolvedValue([]);
+    mockedListBookingTypes.mockReset().mockResolvedValue([]);
     mockedListEntityTypes.mockReset().mockResolvedValue([]);
     mockedListRoleDefinitions.mockReset().mockResolvedValue([]);
     mockedListEntities.mockReset().mockResolvedValue([]);
@@ -81,7 +95,7 @@ describe("App", () => {
     expect(await screen.findByText("API online")).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Planning calendar" })).toBeInTheDocument();
     expect(screen.getByTestId("calendar")).toHaveTextContent("0 events");
-    expect(screen.getByText("Nog geen bookings")).toBeInTheDocument();
+    expect(screen.getByText("Geen bookings in deze periode")).toBeInTheDocument();
   });
 
   it("navigates between all page-level routes", async () => {

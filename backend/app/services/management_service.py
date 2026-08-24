@@ -6,6 +6,7 @@ from sqlalchemy import Select, exists, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
+    BookingType,
     Entity,
     EntityCategory,
     EntityFieldValue,
@@ -208,6 +209,20 @@ def serialize_field_definition(definition: FieldDefinition) -> dict[str, Any]:
         "is_active": definition.is_active,
         "created_at": definition.created_at,
         "updated_at": definition.updated_at,
+    }
+
+
+def serialize_booking_type(booking_type: BookingType) -> dict[str, Any]:
+    return {
+        "id": booking_type.id,
+        "key": booking_type.key,
+        "name": booking_type.name,
+        "booking_scope": booking_type.booking_scope,
+        "default_duration_minutes": booking_type.default_duration_minutes,
+        "duration_mode": booking_type.duration_mode,
+        "is_active": booking_type.is_active,
+        "created_at": booking_type.created_at,
+        "updated_at": booking_type.updated_at,
     }
 
 

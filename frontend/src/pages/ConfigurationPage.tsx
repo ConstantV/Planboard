@@ -1,6 +1,12 @@
 import { useCallback, useState } from "react";
 
 import {
+  createBookingType,
+  deactivateBookingType,
+  listBookingTypes,
+  updateBookingType,
+} from "../api/bookingTypes";
+import {
   createEntityType,
   createFieldDefinition,
   createRoleDefinition,
@@ -17,12 +23,15 @@ import {
 import { MutationFeedback } from "../components/MutationFeedback";
 import { EmptyState, ErrorState, LoadingState } from "../components/PageState";
 import { PageHeader } from "../components/PageHeader";
+import { BookingTypeForm } from "../components/management/BookingTypeForm";
 import { EntityTypeForm } from "../components/management/EntityTypeForm";
 import { FieldDefinitionForm } from "../components/management/FieldDefinitionForm";
 import { RoleDefinitionForm } from "../components/management/RoleDefinitionForm";
 import { useApiResource } from "../hooks/useApiResource";
 import { useMutationFeedback } from "../hooks/useMutationFeedback";
 import type {
+  BookingType,
+  BookingTypeInput,
   EntityTypeInput,
   FieldDefinition,
   FieldDefinitionInput,
@@ -40,8 +49,12 @@ const presets: { key: PresetKey; name: string; description: string }[] = [
 
 export function ConfigurationPage() {
   const loader = useCallback(async () => {
-    const [entityTypes, roles] = await Promise.all([listEntityTypes(), listRoleDefinitions()]);
-    return { entityTypes, roles };
+    const [entityTypes, roles, bookingTypes] = await Promise.all([
+      listEntityTypes(),
+      listRoleDefinitions(),
+      listBookingTypes(undefined, true),
+    ]);
+    return { entityTypes, roles, bookingTypes };
   }, []);
   const { data, error, loading, reload } = useApiResource(loader);
   const mutation = useMutationFeedback();
@@ -49,6 +62,7 @@ export function ConfigurationPage() {
   const [showTypeForm, setShowTypeForm] = useState<"create" | "edit" | null>(null);
   const [editingField, setEditingField] = useState<FieldDefinition | "new" | null>(null);
   const [editingRole, setEditingRole] = useState<RoleDefinition | "new" | null>(null);
+  const [editingBookingType, setEditingBookingType] = useState<BookingType | "new" | null>(null);
 
   const selectedType =
     data?.entityTypes.find((entityType) => entityType.id === selectedTypeId) ??
@@ -92,6 +106,16 @@ export function ConfigurationPage() {
       editingRole === "new" ? "Planningrol toegevoegd." : "Planningrol bijgewerkt.",
     );
     if (result) setEditingRole(null);
+  };
+
+  const saveBookingType = async (input: BookingTypeInput) => {
+    const result = await mutate(
+      () => editingBookingType && editingBookingType !== "new"
+        ? updateBookingType(editingBookingType.id, input)
+        : createBookingType(input),
+      editingBookingType === "new" ? "Afspraaktype toegevoegd." : "Afspraaktype bijgewerkt.",
+    );
+    if (result) setEditingBookingType(null);
   };
 
   return (
@@ -264,6 +288,48 @@ export function ConfigurationPage() {
                   </div>
                 </div>
               </>
+            )}
+
+            {showTypeForm !== "create" && (
+              <div className="panel editor-panel">
+                <div className="section-heading">
+                  <div><p className="eyebrow">Planning</p><h2>Afspraaktypen en duurregels</h2></div>
+                  <button className="button button--secondary" type="button" onClick={() => setEditingBookingType("new")}>Type toevoegen</button>
+                </div>
+                {editingBookingType && (
+                  <BookingTypeForm
+                    key={editingBookingType === "new" ? "new" : editingBookingType.id + editingBookingType.updated_at}
+                    initial={editingBookingType === "new" ? undefined : editingBookingType}
+                    scopes={[...new Set([
+                      ...data.roles.map((role) => role.booking_scope),
+                      ...data.bookingTypes.map((type) => type.booking_scope),
+                    ])].sort()}
+                    saving={mutation.saving}
+                    onSubmit={saveBookingType}
+                    onCancel={() => setEditingBookingType(null)}
+                  />
+                )}
+                <div className="definition-list">
+                  {data.bookingTypes.filter((type) => type.is_active).map((type) => (
+                    <article key={type.id} className="definition-row">
+                      <div><strong>{type.name}</strong><small>{type.key} · {type.booking_scope}</small></div>
+                      <div className="chip-row">
+                        {type.default_duration_minutes != null && <span className="chip">{type.default_duration_minutes} min</span>}
+                        <span className={`chip${type.duration_mode === "fixed" ? " chip--accent" : ""}`}>
+                          {type.duration_mode === "fixed" ? "vaste duur" : "voorgestelde duur"}
+                        </span>
+                      </div>
+                      <div className="row-actions">
+                        <button className="icon-button" type="button" aria-label={`${type.name} bewerken`} onClick={() => setEditingBookingType(type)}>Bewerk</button>
+                        <button className="icon-button icon-button--danger" type="button" aria-label={`${type.name} archiveren`} onClick={() => {
+                          if (window.confirm(`Afspraaktype “${type.name}” archiveren?`)) void mutate(() => deactivateBookingType(type.id), "Afspraaktype gearchiveerd.");
+                        }}>Archiveer</button>
+                      </div>
+                    </article>
+                  ))}
+                  {data.bookingTypes.filter((type) => type.is_active).length === 0 && <p className="muted-copy">Nog geen afspraaktypen. De branchepresets leveren een starterszet.</p>}
+                </div>
+              </div>
             )}
           </section>
         </div>

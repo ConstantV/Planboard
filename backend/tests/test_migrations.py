@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, inspect, text
 EXPECTED_TABLES = {
     "alembic_version",
     "booking_participants",
+    "booking_types",
     "bookings",
     "entities",
     "entity_categories",
@@ -73,6 +74,20 @@ def test_migration_contains_expected_constraints(test_engine) -> None:
     }
     assert "booking_scope" in role_columns
     assert "ix_role_definitions_booking_scope" in role_indexes
+
+    booking_type_checks = {
+        constraint["name"] for constraint in inspector.get_check_constraints("booking_types")
+    }
+    booking_foreign_keys = inspector.get_foreign_keys("bookings")
+    booking_columns = {column["name"] for column in inspector.get_columns("bookings")}
+    assert "ck_booking_types_positive_duration" in booking_type_checks
+    assert "duration_mode" in booking_type_checks
+    assert "booking_type_id" in booking_columns
+    assert any(
+        foreign_key["referred_table"] == "booking_types"
+        and foreign_key["options"].get("ondelete") == "SET NULL"
+        for foreign_key in booking_foreign_keys
+    )
 
 
 def test_upgrade_preserves_data_from_pre_migration_schema(tmp_path: Path) -> None:

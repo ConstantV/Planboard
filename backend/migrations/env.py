@@ -1,3 +1,4 @@
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -12,6 +13,13 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
+# PLANBOARD_DATABASE_URL heeft voorrang op de statische alembic.ini, zodat
+# bijvoorbeeld de E2E-suite tegen een wegwerp-database kan migreren zonder de
+# ontwikkel-database aan te raken.
+database_url = os.environ.get("PLANBOARD_DATABASE_URL")
+if database_url:
+    config.set_main_option("sqlalchemy.url", database_url)
 
 
 def run_migrations_offline() -> None:

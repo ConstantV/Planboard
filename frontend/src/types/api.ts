@@ -5,6 +5,7 @@ export interface HealthResponse {
 
 export type FieldDataType = "text" | "number" | "boolean" | "date" | "select";
 export type BookingStatus = "confirmed" | "tentative" | "cancelled";
+export type DurationMode = "suggested" | "fixed";
 export type CustomValue = string | number | boolean | null;
 
 export interface FieldDefinition {
@@ -120,6 +121,26 @@ export interface EntityInput {
   values?: Record<string, CustomValue>;
 }
 
+export interface BookingType {
+  id: string;
+  key: string;
+  name: string;
+  booking_scope: string;
+  default_duration_minutes: number | null;
+  duration_mode: DurationMode;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BookingTypeInput {
+  key: string;
+  name: string;
+  booking_scope?: string;
+  default_duration_minutes?: number | null;
+  duration_mode?: DurationMode;
+}
+
 export interface BookingParticipantInput {
   entity_id: string;
   role_definition_id: string;
@@ -147,6 +168,7 @@ export interface Booking {
   end_at: string;
   status: BookingStatus;
   notes: string | null;
+  booking_type: BookingType | null;
   created_at: string;
   updated_at: string;
 }
@@ -157,6 +179,7 @@ export interface BookingInput {
   end_at: string;
   status?: BookingStatus;
   notes?: string | null;
+  booking_type_id?: string | null;
 }
 
 export interface BookingConflict {

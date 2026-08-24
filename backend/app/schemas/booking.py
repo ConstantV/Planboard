@@ -3,7 +3,42 @@ from datetime import datetime
 from pydantic import Field, model_validator
 
 from app.models.booking import BookingStatus
+from app.models.booking_type import DurationMode
 from app.schemas.common import ApiModel, PersistedModel
+from app.schemas.entity import KEY_PATTERN
+
+
+class BookingTypeBase(ApiModel):
+    key: str = Field(pattern=KEY_PATTERN, max_length=80)
+    name: str = Field(min_length=1, max_length=120)
+    booking_scope: str = Field(default="default", pattern=KEY_PATTERN, max_length=80)
+    default_duration_minutes: int | None = Field(default=None, gt=0, le=10080)
+    duration_mode: DurationMode = DurationMode.SUGGESTED
+
+    @model_validator(mode="after")
+    def fixed_mode_requires_duration(self) -> "BookingTypeBase":
+        if self.duration_mode is DurationMode.FIXED and self.default_duration_minutes is None:
+            raise ValueError("fixed duration mode requires default_duration_minutes")
+        return self
+
+
+class BookingTypeCreate(BookingTypeBase):
+    pass
+
+
+class BookingTypeUpdate(ApiModel):
+    key: str | None = Field(default=None, pattern=KEY_PATTERN, max_length=80)
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    booking_scope: str | None = Field(default=None, pattern=KEY_PATTERN, max_length=80)
+    default_duration_minutes: int | None = Field(default=None, gt=0, le=10080)
+    duration_mode: DurationMode | None = None
+
+
+class BookingTypeRead(BookingTypeBase):
+    id: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
 
 
 def validate_aware_interval(start_at: datetime, end_at: datetime) -> None:
@@ -36,6 +71,7 @@ class BookingCreate(ApiModel):
     end_at: datetime
     status: BookingStatus = BookingStatus.CONFIRMED
     notes: str | None = Field(default=None, max_length=10000)
+    booking_type_id: str | None = None
 
     @model_validator(mode="after")
     def end_must_follow_start(self) -> "BookingCreate":
@@ -49,6 +85,7 @@ class BookingUpdate(ApiModel):
     end_at: datetime | None = None
     status: BookingStatus | None = None
     notes: str | None = Field(default=None, max_length=10000)
+    booking_type_id: str | None = None
 
     @model_validator(mode="after")
     def timestamps_must_be_aware(self) -> "BookingUpdate":
@@ -67,6 +104,7 @@ class BookingRead(ApiModel):
     end_at: datetime
     status: BookingStatus
     notes: str | None
+    booking_type: BookingTypeRead | None
     created_at: datetime
     updated_at: datetime
 

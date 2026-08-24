@@ -3,10 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../api/client";
+import { createBookingType, listBookingTypes } from "../api/bookingTypes";
 import {
   createFieldDefinition, installPreset, listEntityTypes, listRoleDefinitions,
 } from "../api/configuration";
-import type { EntityType, FieldDefinition } from "../types/api";
+import type { BookingType, EntityType, FieldDefinition } from "../types/api";
 import { ConfigurationPage } from "./ConfigurationPage";
 
 vi.mock("../api/configuration", async (importOriginal) => {
@@ -18,7 +19,19 @@ vi.mock("../api/configuration", async (importOriginal) => {
     createRoleDefinition: vi.fn(), updateRoleDefinition: vi.fn(), deactivateRoleDefinition: vi.fn(),
   };
 });
+vi.mock("../api/bookingTypes", () => ({
+  listBookingTypes: vi.fn(),
+  createBookingType: vi.fn(),
+  updateBookingType: vi.fn(),
+  deactivateBookingType: vi.fn(),
+  getBookingType: vi.fn(),
+}));
 const timestamp = "2026-08-23T12:00:00Z";
+const bookingType: BookingType = {
+  id: "btype-1", key: "knippen", name: "Knippen", booking_scope: "hair_salon",
+  default_duration_minutes: 45, duration_mode: "fixed", is_active: true,
+  created_at: timestamp, updated_at: timestamp,
+};
 const entityType: EntityType = { id: "type-1", key: "customer", name: "Klant", color: "#112233", is_active: true, fields: [], roles: [], created_at: timestamp, updated_at: timestamp };
 const createdField: FieldDefinition = { id: "field-1", entity_type_id: "type-1", key: "segment", label: "Segment", data_type: "select", is_required: true, is_searchable: true, is_filterable: true, display_order: 0, select_options: ["VIP", "Regulier"], is_active: true, created_at: timestamp, updated_at: timestamp };
 
@@ -27,6 +40,7 @@ describe("ConfigurationPage", () => {
     vi.clearAllMocks();
     vi.mocked(listEntityTypes).mockResolvedValue([entityType]);
     vi.mocked(listRoleDefinitions).mockResolvedValue([]);
+    vi.mocked(listBookingTypes).mockResolvedValue([bookingType]);
   });
 
   it("maakt een configureerbaar keuzelijstveld aan", async () => {
@@ -61,5 +75,43 @@ describe("ConfigurationPage", () => {
 
     expect(await screen.findByText("Preset bestaat al.")).toBeInTheDocument();
     expect(screen.getByText("Actie niet mogelijk")).toBeInTheDocument();
+  });
+
+  it("beheert afspraaktypen met duurregels", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createBookingType).mockResolvedValue(bookingType);
+    render(<ConfigurationPage />);
+    await screen.findByRole("heading", { name: "Klant" });
+
+    expect(screen.getByText("45 min")).toBeInTheDocument();
+    expect(screen.getByText("vaste duur")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Type toevoegen" }));
+    await user.type(screen.getByLabelText("Naam"), "Wassen");
+    await user.type(screen.getByLabelText("Technische sleutel"), "wassen");
+    await user.type(screen.getByLabelText(/Standaardduur/), "30");
+    await user.selectOptions(screen.getByLabelText("Duurmodus"), "suggested");
+    await user.click(screen.getByRole("button", { name: "Afspraaktype toevoegen" }));
+
+    await waitFor(() => expect(createBookingType).toHaveBeenCalledWith({
+      key: "wassen", name: "Wassen", booking_scope: "default",
+      default_duration_minutes: 30, duration_mode: "suggested",
+    }));
+    expect(await screen.findByText("Afspraaktype toegevoegd.")).toBeInTheDocument();
+  });
+
+  it("vereist een duur bij een vast afspraaktype", async () => {
+    const user = userEvent.setup();
+    render(<ConfigurationPage />);
+    await screen.findByRole("heading", { name: "Klant" });
+
+    await user.click(screen.getByRole("button", { name: "Type toevoegen" }));
+    await user.type(screen.getByLabelText("Naam"), "Knippen");
+    await user.type(screen.getByLabelText("Technische sleutel"), "knippen_vast");
+    await user.selectOptions(screen.getByLabelText("Duurmodus"), "fixed");
+    await user.click(screen.getByRole("button", { name: "Afspraaktype toevoegen" }));
+
+    expect(await screen.findByText("Een vaste duur vereist een aantal minuten.")).toBeInTheDocument();
+    expect(createBookingType).not.toHaveBeenCalled();
   });
 });

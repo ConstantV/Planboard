@@ -9,6 +9,17 @@ const booking: Booking = {
   end_at: "2026-09-01T11:00:00Z",
   status: "confirmed",
   notes: "Knippen",
+  booking_type: {
+    id: "type-1",
+    key: "knippen",
+    name: "Knippen",
+    booking_scope: "salon",
+    default_duration_minutes: 45,
+    duration_mode: "fixed",
+    is_active: true,
+    created_at: "2026-08-23T10:00:00Z",
+    updated_at: "2026-08-23T10:00:00Z",
+  },
   created_at: "2026-08-23T10:00:00Z",
   updated_at: "2026-08-23T10:00:00Z",
   participants: [
@@ -63,5 +74,13 @@ describe("bookingToEvent", () => {
     expect(bookingToEvent({ ...booking, status: "cancelled" }).classNames).toEqual([
       "booking--cancelled",
     ]);
+  });
+
+  it("keeps the BookingType in extendedProps for detail and edit flows", () => {
+    expect(bookingToEvent(booking).extendedProps?.booking_type).toMatchObject({
+      key: "knippen",
+      duration_mode: "fixed",
+    });
+    expect(bookingToEvent({ ...booking, booking_type: null }).extendedProps?.booking_type).toBeNull();
   });
 });

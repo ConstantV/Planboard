@@ -12,6 +12,7 @@ from app.models.mixins import IdMixin, TimestampMixin
 from app.models.types import UTCDateTime
 
 if TYPE_CHECKING:
+    from app.models.booking_type import BookingType
     from app.models.entity import Entity, RoleDefinition
 
 
@@ -45,7 +46,13 @@ class Booking(IdMixin, TimestampMixin, Base):
         default=BookingStatus.CONFIRMED,
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    booking_type_id: Mapped[str | None] = mapped_column(
+        ForeignKey("booking_types.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
+    booking_type: Mapped[BookingType | None] = relationship(back_populates="bookings")
     participants: Mapped[list[BookingParticipant]] = relationship(
         back_populates="booking",
         cascade="all, delete-orphan",

@@ -5,7 +5,14 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import EntityType, FieldDataType, FieldDefinition, RoleDefinition
+from app.models import (
+    BookingType,
+    DurationMode,
+    EntityType,
+    FieldDataType,
+    FieldDefinition,
+    RoleDefinition,
+)
 
 
 @dataclass(frozen=True)
@@ -17,6 +24,14 @@ class FieldPreset:
     searchable: bool = False
     filterable: bool = False
     options: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class BookingTypePreset:
+    key: str
+    name: str
+    duration_mode: DurationMode = DurationMode.SUGGESTED
+    default_duration_minutes: int | None = None
 
 
 @dataclass(frozen=True)
@@ -111,6 +126,23 @@ PRESETS: dict[str, tuple[EntityTypePreset, ...]] = {
 }
 
 
+BOOKING_TYPE_PRESETS: dict[str, tuple[BookingTypePreset, ...]] = {
+    "hair_salon": (
+        BookingTypePreset("wassen", "Wassen", DurationMode.SUGGESTED, 30),
+        BookingTypePreset("knippen", "Knippen", DurationMode.FIXED, 45),
+        BookingTypePreset("scheren", "Scheren", DurationMode.SUGGESTED, 20),
+        BookingTypePreset("extensions", "Extensions", DurationMode.SUGGESTED, 120),
+    ),
+    "rental": (
+        BookingTypePreset("verhuur", "Verhuur", DurationMode.SUGGESTED),
+    ),
+    "repair_workshop": (
+        BookingTypePreset("diagnose", "Diagnose", DurationMode.FIXED, 30),
+        BookingTypePreset("reparatie", "Reparatie", DurationMode.SUGGESTED, 120),
+    ),
+}
+
+
 def apply_preset(session: Session, preset_key: str) -> list[EntityType]:
     if preset_key not in PRESETS:
         raise ValueError(f"unknown preset: {preset_key}")
@@ -150,5 +182,23 @@ def apply_preset(session: Session, preset_key: str) -> list[EntityType]:
         )
         session.add(entity_type)
         created_types.append(entity_type)
+    for booking_type_preset in BOOKING_TYPE_PRESETS.get(preset_key, ()):
+        existing_type = session.scalar(
+            select(BookingType).where(
+                BookingType.booking_scope == preset_key,
+                BookingType.key == booking_type_preset.key,
+            )
+        )
+        if existing_type is not None:
+            continue
+        session.add(
+            BookingType(
+                key=booking_type_preset.key,
+                name=booking_type_preset.name,
+                booking_scope=preset_key,
+                default_duration_minutes=booking_type_preset.default_duration_minutes,
+                duration_mode=booking_type_preset.duration_mode,
+            )
+        )
     session.flush()
     return created_types
