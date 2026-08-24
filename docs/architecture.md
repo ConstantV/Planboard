@@ -56,7 +56,15 @@ editing behaviour have been removed. The Planning page loads Bookings for FullCa
 date range (`datesSet` → timezone-aware `range_start`/`range_end`), opens a prefilled create form
 on slot selection, and exposes detail, edit, and cancel flows on event click. After a successful
 mutation only the visible range reloads; a dedicated query/cache dependency remains deferred until
-drag-and-drop (step 9) introduces meaningful invalidation and optimistic-update needs.
+shared filtering or multi-user concurrency justifies it.
+
+FullCalendar `eventDrop` and `eventResize` are wired to a narrow `PATCH /api/bookings/{id}/slot` endpoint that only
+changes `start_at` and `end_at`. The backend reuses the existing participant, BookingType, and conflict validation.
+The calendar event is not updated optimistically: the page waits for the response, reloads the visible range on
+success, and calls FullCalendar's `revert()` on failure so the event snaps back to its original slot. A clear
+conflict message lists every blocked Entity, role, and interval. Fixed-duration BookingTypes render their events with
+`durationEditable: false` so the calendar refuses to resize them; the slot endpoint still enforces the exact duration
+if the UI is bypassed.
 
 Browser-level confidence comes from a Playwright suite (`frontend/e2e/`, `bun run test:e2e`) that
 starts the API with a throwaway SQLite file and the frontend on dedicated ports. Alembic honours
