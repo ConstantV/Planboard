@@ -97,6 +97,16 @@ class BookingUpdate(ApiModel):
         return self
 
 
+class BookingSlotUpdate(ApiModel):
+    start_at: datetime
+    end_at: datetime
+
+    @model_validator(mode="after")
+    def end_must_follow_start(self) -> "BookingSlotUpdate":
+        validate_aware_interval(self.start_at, self.end_at)
+        return self
+
+
 class BookingRead(ApiModel):
     id: str
     participants: list[BookingParticipantRead]

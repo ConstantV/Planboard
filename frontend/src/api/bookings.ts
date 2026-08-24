@@ -20,6 +20,10 @@ export const createBooking = (input: BookingInput) =>
   apiRequest<Booking>("/bookings", { method: "POST", body: input });
 export const updateBooking = (id: string, input: Partial<BookingInput>) =>
   apiRequest<Booking>(`/bookings/${id}`, { method: "PATCH", body: input });
+export const updateBookingSlot = (
+  id: string,
+  input: { start_at: string; end_at: string },
+) => apiRequest<Booking>(`/bookings/${id}/slot`, { method: "PATCH", body: input });
 export const cancelBooking = (id: string) =>
   apiRequest<Booking>(`/bookings/${id}/cancel`, { method: "POST" });
 export const deleteBooking = (id: string) =>

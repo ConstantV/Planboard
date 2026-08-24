@@ -1,12 +1,18 @@
 import { useCallback, useState } from "react";
 
-import { cancelBooking, createBooking, listBookings, updateBooking } from "../api/bookings";
+import {
+  cancelBooking,
+  createBooking,
+  listBookings,
+  updateBooking,
+  updateBookingSlot,
+} from "../api/bookings";
 import { listBookingTypes } from "../api/bookingTypes";
 import { listRoleDefinitions } from "../api/configuration";
 import { listEntities } from "../api/entities";
 import { BookingDetails } from "../components/booking/BookingDetails";
 import { BookingForm } from "../components/booking/BookingForm";
-import type { CalendarRange, CalendarSlot } from "../components/ScheduleCalendar";
+import type { CalendarEventChange, CalendarRange, CalendarSlot } from "../components/ScheduleCalendar";
 import { MutationFeedback } from "../components/MutationFeedback";
 import { EmptyState, ErrorState, LoadingState } from "../components/PageState";
 import { PageHeader } from "../components/PageHeader";
@@ -73,6 +79,22 @@ export function PlanningPage() {
     if (result !== null) await refresh();
   };
 
+  const changeSlot = async (change: CalendarEventChange) => {
+    const result = await mutation.run(
+      () =>
+        updateBookingSlot(change.bookingId, {
+          start_at: change.start.toISOString(),
+          end_at: change.end.toISOString(),
+        }),
+      "Booking verplaatst.",
+    );
+    if (result !== null) {
+      await refresh();
+    } else {
+      change.revert();
+    }
+  };
+
   const openEvent = (bookingId: string) => {
     const booking = bookings.data?.find((item) => item.id === bookingId);
     if (booking) {
@@ -104,6 +126,7 @@ export function PlanningPage() {
         }
       />
 
+      {mutation.error && <MutationFeedback error={mutation.error} notice={null} />}
       {mutation.notice && selection === null && (
         <MutationFeedback error={null} notice={mutation.notice} />
       )}
@@ -121,12 +144,15 @@ export function PlanningPage() {
           )}
           <ScheduleCalendar
             events={bookings.data.map(bookingToEvent)}
+            editable={!mutation.saving}
             onRangeChange={setRange}
             onSelectSlot={(slot) => {
               mutation.clear();
               setSelection({ kind: "create", slot });
             }}
             onEventClick={openEvent}
+            onEventDrop={changeSlot}
+            onEventResize={changeSlot}
           />
         </section>
       )}

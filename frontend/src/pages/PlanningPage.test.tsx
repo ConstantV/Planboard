@@ -2,11 +2,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { cancelBooking, listBookings } from "../api/bookings";
+import { cancelBooking, listBookings, updateBookingSlot } from "../api/bookings";
 import { listBookingTypes } from "../api/bookingTypes";
 import { listRoleDefinitions } from "../api/configuration";
 import { listEntities } from "../api/entities";
-import type { CalendarRange, CalendarSlot } from "../components/ScheduleCalendar";
+import type { CalendarEventChange, CalendarRange, CalendarSlot } from "../components/ScheduleCalendar";
 import type { Booking, BookingType, Entity, RoleDefinition } from "../types/api";
 import { PlanningPage } from "./PlanningPage";
 
@@ -14,6 +14,7 @@ vi.mock("../api/bookings", () => ({
   listBookings: vi.fn(),
   createBooking: vi.fn(),
   updateBooking: vi.fn(),
+  updateBookingSlot: vi.fn(),
   cancelBooking: vi.fn(),
 }));
 vi.mock("../api/bookingTypes", () => ({
@@ -34,11 +35,15 @@ vi.mock("../components/ScheduleCalendar", () => ({
     onRangeChange,
     onSelectSlot,
     onEventClick,
+    onEventDrop,
+    onEventResize,
   }: {
     events: unknown[];
     onRangeChange?: (range: CalendarRange) => void;
     onSelectSlot?: (slot: CalendarSlot) => void;
     onEventClick?: (bookingId: string) => void;
+    onEventDrop?: (change: CalendarEventChange) => void;
+    onEventResize?: (change: CalendarEventChange) => void;
   }) => (
     <div data-testid="schedule-calendar">
       <button
@@ -65,6 +70,32 @@ vi.mock("../components/ScheduleCalendar", () => ({
       </button>
       <button type="button" onClick={() => onEventClick?.("booking-1")}>
         trigger-event-click
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onEventDrop?.({
+            bookingId: "booking-1",
+            start: new Date("2026-09-10T10:00:00Z"),
+            end: new Date("2026-09-10T10:30:00Z"),
+            revert: vi.fn(),
+          })
+        }
+      >
+        trigger-event-drop
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onEventResize?.({
+            bookingId: "booking-1",
+            start: new Date("2026-09-10T09:00:00Z"),
+            end: new Date("2026-09-10T10:00:00Z"),
+            revert: vi.fn(),
+          })
+        }
+      >
+        trigger-event-resize
       </button>
     </div>
   ),
@@ -175,5 +206,50 @@ describe("PlanningPage", () => {
 
     expect(cancelBooking).not.toHaveBeenCalled();
     confirm.mockRestore();
+  });
+
+  it("persisteert een kalender-drop via de slot-API", async () => {
+    const user = userEvent.setup();
+    vi.mocked(updateBookingSlot).mockResolvedValue({ ...booking, start_at: "2026-09-10T10:00:00Z", end_at: "2026-09-10T10:30:00Z" });
+    render(<PlanningPage />);
+    await screen.findByTestId("schedule-calendar");
+
+    await user.click(screen.getByRole("button", { name: "trigger-event-drop" }));
+
+    await waitFor(() =>
+      expect(updateBookingSlot).toHaveBeenCalledWith("booking-1", {
+        start_at: "2026-09-10T10:00:00.000Z",
+        end_at: "2026-09-10T10:30:00.000Z",
+      }),
+    );
+  });
+
+  it("toont een foutmelding wanneer een drop door de API wordt geweigerd", async () => {
+    const user = userEvent.setup();
+    vi.mocked(updateBookingSlot).mockRejectedValue(
+      new Error("Conflict"),
+    );
+    render(<PlanningPage />);
+    await screen.findByTestId("schedule-calendar");
+
+    await user.click(screen.getByRole("button", { name: "trigger-event-drop" }));
+
+    await screen.findByText("Opslaan mislukt");
+  });
+
+  it("persisteert een kalender-resize via de slot-API", async () => {
+    const user = userEvent.setup();
+    vi.mocked(updateBookingSlot).mockResolvedValue({ ...booking, end_at: "2026-09-10T10:00:00Z" });
+    render(<PlanningPage />);
+    await screen.findByTestId("schedule-calendar");
+
+    await user.click(screen.getByRole("button", { name: "trigger-event-resize" }));
+
+    await waitFor(() =>
+      expect(updateBookingSlot).toHaveBeenCalledWith("booking-1", {
+        start_at: "2026-09-10T09:00:00.000Z",
+        end_at: "2026-09-10T10:00:00.000Z",
+      }),
+    );
   });
 });

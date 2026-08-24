@@ -11,11 +11,12 @@ from app.api.routes.configuration import load_entity_type
 from app.api.routes.entities import load_entity
 from app.api.routes.helpers import parse_field_filters
 from app.models import Booking, BookingParticipant, BookingStatus, BookingType, RoleDefinition
-from app.schemas.booking import BookingCreate, BookingRead, BookingUpdate
+from app.schemas.booking import BookingCreate, BookingRead, BookingSlotUpdate, BookingUpdate
 from app.services.booking_service import (
     BookingValidationError,
     begin_booking_write,
     booking_statement,
+    check_booking_slot_conflicts,
     find_booking_conflicts,
     list_bookings,
     participant_scope,
@@ -215,6 +216,32 @@ def update_booking(
             booking.booking_type = target_booking_type
         if participant_payloads is not None:
             replace_participants(session, booking, participants)
+        session.commit()
+    except BookingValidationError as error:
+        session.rollback()
+        raise ApiError(422, "invalid_booking", str(error)) from error
+    return serialize_booking(load_booking(session, booking.id))
+
+
+@router.patch("/bookings/{booking_id}/slot", response_model=BookingRead)
+def update_booking_slot(
+    booking_id: str,
+    payload: BookingSlotUpdate,
+    session: DbSession,
+) -> dict:
+    begin_booking_write(session)
+    booking = load_booking(session, booking_id)
+    try:
+        validate_interval(payload.start_at, payload.end_at)
+        conflicts = check_booking_slot_conflicts(
+            session,
+            booking,
+            payload.start_at,
+            payload.end_at,
+        )
+        raise_conflict(conflicts)
+        booking.start_at = payload.start_at
+        booking.end_at = payload.end_at
         session.commit()
     except BookingValidationError as error:
         session.rollback()

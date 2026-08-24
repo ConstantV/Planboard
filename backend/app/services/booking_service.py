@@ -318,6 +318,32 @@ def replace_participants(
     )
 
 
+def check_booking_slot_conflicts(
+    session: Session,
+    booking: Booking,
+    start_at: datetime,
+    end_at: datetime,
+) -> list[dict[str, Any]]:
+    """Validate a booking slot change and return any exclusive-entity conflicts."""
+    participants = resolve_participants(session, booking.participants)
+    if booking.booking_type is not None:
+        validate_booking_type(
+            booking.booking_type,
+            scope=participant_scope(participants),
+            start_at=start_at,
+            end_at=end_at,
+        )
+    if booking.status is BookingStatus.CANCELLED:
+        return []
+    return find_booking_conflicts(
+        session,
+        participants=participants,
+        start_at=start_at,
+        end_at=end_at,
+        exclude_booking_id=booking.id,
+    )
+
+
 def serialize_booking(booking: Booking) -> dict[str, Any]:
     return {
         "id": booking.id,

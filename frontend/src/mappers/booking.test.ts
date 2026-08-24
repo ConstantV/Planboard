@@ -83,4 +83,12 @@ describe("bookingToEvent", () => {
     });
     expect(bookingToEvent({ ...booking, booking_type: null }).extendedProps?.booking_type).toBeNull();
   });
+
+  it("disables duration editing for fixed-duration BookingTypes", () => {
+    expect(bookingToEvent(booking).durationEditable).toBe(false);
+  });
+
+  it("allows duration editing for suggested-duration BookingTypes", () => {
+    expect(bookingToEvent({ ...booking, booking_type: { ...booking.booking_type!, duration_mode: "suggested" } }).durationEditable).toBe(true);
+  });
 });

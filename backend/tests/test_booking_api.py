@@ -433,3 +433,105 @@ def test_booking_filter_and_interval_errors_are_structured(api_client: TestClien
     assert invalid_range.json()["error"]["code"] == "invalid_booking_filter"
     assert missing_entity.status_code == 404
     assert invalid_field.status_code == 422
+
+
+def test_slot_update_moves_and_resizes_booking(api_client: TestClient) -> None:
+    _types, participants = salon_setup(api_client)
+    start_at = datetime(2026, 9, 10, 10, tzinfo=UTC)
+    booking = create_booking(
+        api_client,
+        participants,
+        start_at,
+        start_at + timedelta(hours=1),
+    ).json()
+
+    moved_start = start_at + timedelta(hours=2)
+    moved = api_client.patch(
+        f"/api/bookings/{booking['id']}/slot",
+        json={
+            "start_at": moved_start.isoformat(),
+            "end_at": (moved_start + timedelta(hours=1)).isoformat(),
+        },
+    )
+    assert moved.status_code == 200
+    assert moved.json()["start_at"] != booking["start_at"]
+    assert moved.json()["end_at"] != booking["end_at"]
+
+    resized = api_client.patch(
+        f"/api/bookings/{booking['id']}/slot",
+        json={
+            "start_at": moved_start.isoformat(),
+            "end_at": (moved_start + timedelta(hours=2)).isoformat(),
+        },
+    )
+    assert resized.status_code == 200
+    assert resized.json()["end_at"] != moved.json()["end_at"]
+
+
+def test_slot_update_rejects_conflicting_exclusive_resource(api_client: TestClient) -> None:
+    _types, participants = salon_setup(api_client)
+    start_at = datetime(2026, 9, 11, 10, tzinfo=UTC)
+    first = create_booking(
+        api_client,
+        participants,
+        start_at,
+        start_at + timedelta(hours=1),
+    ).json()
+
+    second_start = start_at + timedelta(hours=2)
+    second = create_booking(
+        api_client,
+        participants,
+        second_start,
+        second_start + timedelta(hours=1),
+    ).json()
+
+    conflict = api_client.patch(
+        f"/api/bookings/{second['id']}/slot",
+        json={
+            "start_at": (start_at + timedelta(minutes=30)).isoformat(),
+            "end_at": (start_at + timedelta(hours=1, minutes=30)).isoformat(),
+        },
+    )
+    assert conflict.status_code == 409
+    assert conflict.json()["error"]["code"] == "booking_conflict"
+    assert {item["booking_id"] for item in conflict.json()["error"]["details"]} == {first["id"]}
+
+
+def test_slot_update_rejects_fixed_duration_resize(api_client: TestClient) -> None:
+    _types, participants = salon_setup(api_client)
+    cut_type = next(
+        booking_type
+        for booking_type in api_client.get("/api/booking-types?booking_scope=hair_salon").json()
+        if booking_type["key"] == "knippen"
+    )
+    start_at = datetime(2026, 9, 12, 10, tzinfo=UTC)
+    booking = create_booking(
+        api_client,
+        participants,
+        start_at,
+        start_at + timedelta(minutes=cut_type["default_duration_minutes"]),
+        booking_type_id=cut_type["id"],
+    ).json()
+
+    wrong_duration = api_client.patch(
+        f"/api/bookings/{booking['id']}/slot",
+        json={
+            "start_at": start_at.isoformat(),
+            "end_at": (start_at + timedelta(hours=1)).isoformat(),
+        },
+    )
+    assert wrong_duration.status_code == 422
+    assert "duration" in wrong_duration.json()["error"]["message"].lower()
+
+
+def test_slot_update_not_found_returns_404(api_client: TestClient) -> None:
+    start_at = datetime(2026, 9, 13, 10, tzinfo=UTC)
+    response = api_client.patch(
+        "/api/bookings/does-not-exist/slot",
+        json={
+            "start_at": start_at.isoformat(),
+            "end_at": (start_at + timedelta(hours=1)).isoformat(),
+        },
+    )
+    assert response.status_code == 404
