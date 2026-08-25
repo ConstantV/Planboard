@@ -8,9 +8,9 @@ followed by the step-9 documentation commit
 
 ## 1. Read this first
 
-Planboard is complete through **development step 9**. The next implementation increment is
-**step 10 — Resource occupancy, availability, shared filtering, colors, list view, and operational quality**.
-Do not start step 11 local release and pilot readiness before step 10 passes its complete test and acceptance gate.
+Planboard is complete through **development step 10**. The next implementation increment is
+**step 11 — Local release and pilot readiness**.
+Do not start step 11 before step 10 passes its complete test and acceptance gate.
 
 The authoritative documents are:
 
@@ -24,8 +24,8 @@ The authoritative documents are:
 
 ## 2. Important workspace state
 
-At handover time, the tracked repository is synchronized with `origin/main` at the step-8
-implementation commit `fc5cb0b` and its follow-up documentation commit.
+At handover time, the tracked repository is synchronized with `origin/main` at the step-10
+implementation and documentation commits.
 
 There is one untracked file:
 
@@ -33,7 +33,7 @@ There is one untracked file:
 docs/gebruikershandleiding.pdf
 ```
 
-This PDF was not created or modified during the handover task. Treat it as user-owned work:
+This PDF is user-owned work:
 
 - do not delete or overwrite it;
 - do not add it to a commit without first deciding whether generated PDFs belong in Git;
@@ -191,6 +191,34 @@ Key commit: `fc5cb0b`.
 
 Key commit: to be created.
 
+### Step 10 — occupancy, availability, shared filters, list view, colors, export, and operational quality
+
+- Configurable business hours per day of week, with API validation rejecting Bookings outside open
+  hours and a frontend configuration UI; calendar visible range derives from opening hours.
+- Modal booking form that opens from “Nieuwe booking” or a calendar slot selection; the calendar
+  remains clickable while the popup is open, and selecting another slot updates the form's start/end
+  without closing.
+- Shared filter bar generated from EntityTypes, roles, categories, status, date range, and free text;
+  cumulative filtering with active chips and clear-all; filters persist when switching views.
+- Calendar and list views render the same filtered booking result set; list view shows status chips,
+  participant color dots, and click-to-detail.
+- Availability endpoint `GET /api/availability` returns exclusive Entities that are free for a requested
+  interval, with role/type/category filters and edit-exclusion support.
+- Occupancy endpoint `GET /api/entities/{entity_id}/occupancy` returns an Entity's Bookings and free
+  gaps within business hours for a date range.
+- Color legend panel and consistent resolved-color application in calendar, list, and detail views.
+- CSV export `GET /api/bookings/export.csv` with UTF-8 BOM for Excel compatibility.
+- Structured JSON backend logging with `PLANBOARD_LOG_JSON` and `PLANBOARD_LOG_LEVEL` environment
+  controls; booking mutations and conflicts are logged.
+- Accessibility and responsiveness review: focus management in the modal, keyboard-operable list rows,
+  `aria-labels`, and responsive filter bar and table layouts.
+- Timezone handling corrected so that `datetime-local` values are sent with a local offset, keeping
+  wall-clock times consistent with configured business hours.
+- Backend tests cover availability, occupancy, business hours, and CSV export; frontend tests cover
+  the filter bar, list view, panels, legend, and datetime helpers; E2E suite still passes end-to-end.
+
+Key commits: to be created.
+
 ### Documentation
 
 - Development plan and architecture updated after every completed step.
@@ -203,8 +231,8 @@ Key commits: `b91a883` (step 8), step-9 docs commit to be created.
 
 Last complete gate result:
 
-- Backend: **68/68 tests passed**, Ruff/checks passed, Alembic drift check passed.
-- Frontend: **49/49 tests across 11 files passed**, ESLint passed, TypeScript passed, Vite
+- Backend: **85/85 tests passed**, Ruff/checks passed, Alembic drift check passed.
+- Frontend: **70/70 tests across 17 files passed**, ESLint passed, TypeScript passed, Vite
   production build passed.
 - Playwright E2E: **3/3 tests passed** (booking lifecycle, reschedule persistence, conflict
   feedback) against an isolated throwaway database.
@@ -286,10 +314,15 @@ test assumption.
 | Entity/category API | `backend/app/api/routes/entities.py`, `categories.py` |
 | Booking API | `backend/app/api/routes/bookings.py` |
 | BookingType API | `backend/app/api/routes/booking_types.py` |
+| Availability/occupancy API | `backend/app/api/routes/availability.py` |
+| Business-hours API | `backend/app/api/routes/business_hours.py` |
 | Models | `backend/app/models/` |
 | API schemas | `backend/app/schemas/` |
 | Entity validation/filtering | `backend/app/services/entity_service.py` |
 | Booking roles/conflicts/querying | `backend/app/services/booking_service.py` |
+| Availability/occupancy | `backend/app/services/availability_service.py` |
+| Business hours | `backend/app/services/business_hours_service.py` |
+| Logging | `backend/app/core/logging.py` |
 | Presets | `backend/app/services/presets.py` |
 | Tests | `backend/tests/` |
 
@@ -302,8 +335,11 @@ test assumption.
 | Booking API | `frontend/src/api/bookings.ts` |
 | Planning page | `frontend/src/pages/PlanningPage.tsx` |
 | FullCalendar wrapper | `frontend/src/components/ScheduleCalendar.tsx` |
-| Booking form/details | `frontend/src/components/booking/BookingForm.tsx`, `BookingDetails.tsx` |
+| Booking form/details/modal | `frontend/src/components/booking/BookingForm.tsx`, `BookingDetails.tsx`, `BookingModal.tsx` |
+| Filter bar, list, legend, panels | `frontend/src/components/booking/FilterBar.tsx`, `BookingList.tsx`, `ColorLegend.tsx`, `OccupancyPanel.tsx`, `AvailabilityPanel.tsx` |
 | BookingType API client | `frontend/src/api/bookingTypes.ts` |
+| Availability API client | `frontend/src/api/availability.ts` |
+| Business-hours API client | `frontend/src/api/businessHours.ts` |
 | Booking → event mapping | `frontend/src/mappers/booking.ts` |
 | Playwright E2E | `frontend/e2e/`, `frontend/playwright.config.ts` |
 | Entity management | `frontend/src/pages/EntitiesPage.tsx`, `components/management/EntityForm.tsx` |
@@ -337,64 +373,34 @@ panel with edit and cancel actions. `BookingForm` validates scope, interval, req
 BookingType duration rules before submitting; `BookingDetails` renders participants, interval,
 type/duration, status, and notes.
 
-## 9. Next increment: step 10
+## 9. Next increment: step 11 — local release and pilot readiness
 
 ### Goal
 
-Make the scheduling board useful during daily operations, resource-allocation decisions, and
-focused planning queries.
+Package the MVP as an installable local application that can be evaluated by the first pilot user.
 
 ### Required behavior
 
-1. Add one shared filter bar generated from configured EntityTypes, roles, categories, filterable
-   fields, booking status, date range, and relevant free text.
-2. Combine active filters cumulatively and provide a clear-all action plus visible active-filter
-   indicators.
-3. Make parent-category filters include Entities in descendant categories unless the user explicitly
-   selects only one category level.
-4. Keep the calendar as the default main view and add a list view based on the exact same filtered
-   booking result set.
-5. Add a focused occupancy view for one selected exclusive Entity, showing its Bookings and free
-   gaps for the selected period.
-6. Preserve active filters, date range, and relevant selection state when switching between calendar
-   and list views.
-7. Show only matching Bookings and corresponding Entities in both views; show a clear empty state
-   when nothing matches.
-8. Apply resolved Entity/category/EntityType colors consistently in calendar, list, legend, and
-   accessible non-color indicators.
-9. Add an availability query for a requested start and end time that returns compatible exclusive
-   Entities that are free for the entire interval, filterable by role, EntityType, category, and
-   configured properties.
-10. Reuse the same overlap semantics as Booking conflict protection, including half-open intervals,
-    cancelled Bookings, inactive Entities, and exclusion of the current Booking while editing.
-11. Add deliberate loading performance for realistic data volumes, structured backend logging, safe
-    user-facing errors, accessibility and responsiveness review, timezone behaviour and data
-    validation review, CSV/Excel export if still in pilot scope, and contract generation if confirmed.
+1. Add the agreed minimal authentication or local access protection appropriate for the single-user
+   MVP and any configured sensitive fields.
+2. Build the production frontend and serve it through the packaged application.
+3. Package the backend, frontend assets, and SQLite setup for a clean machine.
+4. Add backup, restore, export, and upgrade instructions.
+5. Define release versioning and create a pilot checklist.
+6. Do not begin SaaS multi-tenancy until the local MVP decision gate is passed.
 
 ### Automated tests required by the plan
 
-- Generated filters independently and in combination, clear-all behaviour, descendant-category and
-  custom-field filtering, per-role availability calculations;
-- Focused occupancy results and free-gap boundaries for one exclusive Entity across day and week
-  ranges;
-- Free-resource searches for fully free, partially occupied, adjacent, cancelled, inactive,
-  role/type-incompatible, and edit-exclusion cases;
-- Calendar and list views contain the same matching Bookings and switching views preserves filter
-  state;
-- Empty results, archived entities, special characters, case-insensitive free-text matching;
-- Realistic dataset test for range queries, accessibility check on primary pages, export columns and
-  escaping, color precedence, legend/accessibility behaviour, and stable rendering after
-  configuration changes.
+- Run the complete backend, frontend, and end-to-end suites against a production build.
+- Test database creation and upgrade from an earlier release fixture.
+- Test backup and restore with representative data.
+- Scan the build output for accidental secrets and development-only configuration.
 
 ### Definition of done
 
-- The board supports all three realistic scenarios, focused resource occupancy, interval-based
-  free-resource searches, shared generated filtering, configured colors, and calendar/list switching
-  without direct technical intervention.
+- A clean machine can install, run, update, back up, and restore the MVP.
+- The pilot user can complete the core workflow without developer assistance.
 - Backend and frontend full gates pass.
-- Booking API scenario acceptance passes.
-- Playwright coverage for filtering, occupancy, and availability passes against an isolated test
-  database.
 - `docs/development-plan.md`, `docs/architecture.md`, LifeOS project note, and this handover are
   updated; implementation and documentation are committed separately and pushed to `origin/main`.
 

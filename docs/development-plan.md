@@ -84,7 +84,7 @@ Custom values use relational, datatype-specific indexed columns because filterin
 | 7 | Entity and configuration user interface | Complete | Backend: Ruff + 57 tests + Alembic drift check; frontend: lint + 25 tests + build; live routes, APIs, and CORS HTTP 200 | `608fc0a` |
 | 8 | Service-aware calendar booking workflow | Complete | Backend: Ruff + 64 tests + Alembic drift check; frontend: ESLint + 38 tests + build; three-scenario API acceptance; Playwright E2E booking lifecycle | `fc5cb0b` |
 | 9 | Drag-and-drop rescheduling and conflict recovery | Complete | Backend: Ruff + 68 tests + Alembic drift check; frontend: ESLint + 49 tests + build; three-scenario API acceptance; Playwright E2E reschedule/conflict | `feat: add drag-and-drop rescheduling and conflict recovery` |
-| 10 | Resource occupancy, availability, shared filtering, colors, list view, and operational quality | Planned | — | — |
+| 10 | Resource occupancy, availability, shared filtering, colors, list view, business hours, popup booking form, and operational quality | Complete | Backend: Ruff + 85 tests + Alembic drift check; frontend: ESLint + 70 tests + build; 3 Playwright E2E tests pass; shared filters, list view, availability/occupancy panels, CSV export, structured logging, color legend, accessibility/responsive review, timezone fix | — |
 | 11 | Local release and pilot readiness | Planned | — | — |
 
 ## Step 0 — Reproducible local environment
@@ -452,15 +452,18 @@ Make calendar rescheduling fast without allowing inconsistent data.
 
 - Drag-and-drop is persistent, conflict-safe, and recoverable after failures.
 
-## Step 10 — Resource occupancy, availability, shared filtering, colors, list view, and operational quality
+## Step 10 — Resource occupancy, availability, shared filtering, colors, list view, business hours, popup booking form, and operational quality
 
 ### Goal
 
 Make the scheduling board useful during daily operations, resource-allocation decisions, and
-focused planning queries.
+focused planning queries, while enforcing configured business hours and keeping the booking
+workflow visible without scrolling.
 
 ### Execute
 
+- Add configurable business hours (opening hours) per day of the week with start/end times and
+  closed days; use them to set the calendar visible range and to reject Bookings outside those hours.
 - Add one shared filter bar generated from configured EntityTypes, roles, categories, filterable fields, booking status, date range, and relevant free text.
 - Combine active filters cumulatively and provide a clear-all action plus visible active-filter indicators.
 - Make parent-category filters include Entities in descendant categories unless the user explicitly selects only one category level.
@@ -475,6 +478,10 @@ focused planning queries.
   configured properties.
 - Reuse the same overlap semantics as Booking conflict protection, including half-open intervals,
   cancelled Bookings, inactive Entities, and exclusion of the current Booking while editing.
+- Replace the under-calendar booking panel with a modal/popup form that opens from "Nieuwe booking"
+  or by selecting a calendar slot.
+- While the popup is open, keep the calendar selectable: a click outside the popup on another slot
+  updates the popup's start/end times without closing it.
 - Add deliberate loading performance for realistic data volumes.
 - Add structured backend logging and safe user-facing errors.
 - Review accessibility, responsiveness, timezone behaviour, and data validation.
@@ -483,6 +490,8 @@ focused planning queries.
 
 ### Automated tests
 
+- Test business-hours CRUD, validation, closed-day handling, and rejection of Bookings outside
+  configured hours.
 - Test generated filters independently, meaningful combinations, clear-all behaviour,
   descendant-category/custom-field filtering, and per-role availability calculations.
 - Test focused occupancy results and free-gap boundaries for one exclusive Entity across day and
@@ -495,10 +504,14 @@ focused planning queries.
 - Run an accessibility check on primary pages.
 - Test export columns, escaping, and date formatting if export is included.
 - Test color precedence, legend/accessibility behaviour, and stable rendering after configuration changes.
+- Test that the booking popup opens from a calendar click and from "Nieuwe booking", and that a
+  second calendar click while the popup is open updates the form's selected slot without closing.
 - If documents are included, test placeholder allowlisting, escaping, missing values, template versioning, and PDF generation.
 
 ### Manual acceptance
 
+- Configure business hours and confirm the calendar shows only those hours and rejects a Booking
+  outside them with a clear error.
 - Complete a realistic hair-salon scenario by filtering appointments by customer, hairdresser, and station, then switch between calendar and list views.
 - Select one hairdresser or chair and verify its occupied periods and free gaps; then choose an
   appointment interval and find all compatible free hairdressers or chairs.
@@ -510,12 +523,15 @@ focused planning queries.
 - Confirm that active filters remain unchanged after switching views and that only matching Bookings and Entities are visible.
 - Confirm configured colors resolve consistently; if in pilot scope, generate a rental contract from a Booking.
 - Verify the core workflow on desktop and tablet-size layouts.
+- Open the booking popup, click a different slot in the calendar, and verify the popup updates its
+  selected time without closing; then save the Booking.
 
 ### Done when
 
-- The board supports all three realistic scenarios, focused resource occupancy, interval-based
-  free-resource searches, shared generated filtering, configured colors, and calendar/list
-  switching without direct technical intervention.
+- The board supports configured business hours, all three realistic scenarios, focused resource
+  occupancy, interval-based free-resource searches, shared generated filtering, configured colors,
+  calendar/list switching, and a modal booking form whose selected slot updates when the user clicks
+  another calendar slot while the popup remains open, all without direct technical intervention.
 
 ## Step 11 — Local release and pilot readiness
 
@@ -582,3 +598,4 @@ Add one row after completing or blocking a step.
 | 2026-08-24 | Requirements expansion | Duration per appointment/activity type plus focused resource occupancy and interval availability incorporated | Product-model and phased-plan review | Add configurable BookingTypes and duration rules in step 8; deliver occupancy and free-resource search in step 10 using existing exclusivity semantics |
 | 2026-08-24 | 8 | Complete | Backend: Ruff + 64 Pytest tests + `alembic check`; frontend: ESLint + 38 Vitest tests + production build; salon/rental/workshop Booking API acceptance; Playwright E2E (preset → Entities → create/edit/cancel typed Booking) against a throwaway database | BookingType with suggested/fixed duration modes enforced in API and form; calendar does visible-range loading, slot creation, detail/edit/cancel; Alembic honours `PLANBOARD_DATABASE_URL`; implementation in `fc5cb0b` |
 | 2026-08-24 | 9 | Complete | Backend: Ruff + 68 Pytest tests + `alembic check`; frontend: ESLint + 49 Vitest tests + production build; salon/rental/workshop Booking API acceptance; Playwright E2E reschedule and conflict against a throwaway database | Added dedicated `PATCH /bookings/{id}/slot` endpoint; FullCalendar eventDrop/eventResize wired; conflict details surfaced in UI; fixed-duration bookings are not resizable; component tests cover drag handlers; E2E covers reschedule/conflict via the edit form because FullCalendar drag-and-drop simulation is unreliable in Playwright; implementation in `feat: add drag-and-drop rescheduling and conflict recovery` |
+| 2026-08-24 | 10 | Complete | Backend: Ruff + 85 pytest tests + `alembic check`; frontend: ESLint + 70 Vitest tests + production build; 3 Playwright E2E tests pass; business-hours CRUD/validation; shared filter bar with active chips; calendar/list/availability/occupancy views; availability and occupancy endpoints; CSV export; structured JSON logging; color legend; popup booking form with click-outside slot update; timezone handling corrected | Step 10 delivered: configurable business hours, shared filters, list view, focused occupancy and availability views, color legend, CSV export, structured logging, accessibility/responsive review, and modal booking form that updates its slot while open. Ready to start step 11. |

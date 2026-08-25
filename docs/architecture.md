@@ -23,6 +23,9 @@ multi-tenant deployment without changing the domain contract.
   change key or scope, and deactivation is preferred over deletion.
 - `Booking` owns the timezone-safe interval, status, notes, and an optional BookingType reference
   (`ON DELETE SET NULL`).
+- `BusinessHours` configures open/closed times per day of week. When present, Bookings must fall
+  entirely within open hours on every day they touch; the calendar visible range derives from the
+  earliest open and latest close of the configured week.
 
 This structure supports salon, rental, and repair-workshop presets without industry-specific tables
 or code paths.
@@ -54,9 +57,15 @@ components provide loading, empty, retry, and recovery behaviour consistently.
 FullCalendar receives only mapped Booking API responses; the temporary demo event and non-persisted
 editing behaviour have been removed. The Planning page loads Bookings for FullCalendar's visible
 date range (`datesSet` → timezone-aware `range_start`/`range_end`), opens a prefilled create form
-on slot selection, and exposes detail, edit, and cancel flows on event click. After a successful
-mutation only the visible range reloads; a dedicated query/cache dependency remains deferred until
-shared filtering or multi-user concurrency justifies it.
+on slot selection, and exposes detail, edit, and cancel flows on event click. The booking form is
+rendered in a modal; selecting another slot while the modal is open updates the form's start/end
+without closing it. After a successful mutation only the visible range reloads; a dedicated query/cache
+dependency remains deferred until shared filtering or multi-user concurrency justifies it.
+
+A shared `FilterBar` drives the calendar, list, availability, and occupancy views with one central
+filter state. Active filters are shown as removable chips with a clear-all action; the calendar and
+list views render the same filtered result set. A `ColorLegend` panel exposes configured EntityType
+colors as text labels so color is never the only source of meaning.
 
 FullCalendar `eventDrop` and `eventResize` are wired to a narrow `PATCH /api/bookings/{id}/slot` endpoint that only
 changes `start_at` and `end_at`. The backend reuses the existing participant, BookingType, and conflict validation.
@@ -113,10 +122,21 @@ row locking. SQLite starts Booking writes with `BEGIN IMMEDIATE`, serializing th
 sequence. Conflict responses identify every blocked Entity, requested role, conflicting role,
 Booking, and interval. Cancelled Bookings never block time; adjacent half-open intervals are valid.
 
-The Booking list endpoint is the shared result contract for later calendar and list views. It can
+The Booking list endpoint is the shared result contract for the calendar and list views. It can
 combine an overlapping time range, EntityType, Entity, role, category descendants, status,
 configured filterable fields, and literal free-text search. SQL wildcard characters in user search
-input are escaped.
+input are escaped. The same filter object drives `GET /api/bookings/export.csv`, which returns a
+UTF-8 BOM-encoded CSV for Excel compatibility.
+
+A separate `GET /api/availability` endpoint returns exclusive Entities that are free for a requested
+interval, using the same half-open overlap semantics as Booking conflict protection and supporting
+role, EntityType, category, configured field, and current-booking-exclusion filters.
+`GET /api/entities/{id}/occupancy` returns one Entity's Bookings and free gaps within business hours
+for a requested range, so users can inspect a single resource and find compatible free slots.
+
+Backend logging is configured through `PLANBOARD_LOG_JSON` and `PLANBOARD_LOG_LEVEL`. Booking
+mutations and conflicts are logged at `INFO`/`WARNING` to support operational debugging without
+leaving sensitive data in unstructured text.
 
 ## Color resolution
 
