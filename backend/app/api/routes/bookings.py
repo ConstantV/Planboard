@@ -1,7 +1,11 @@
+import csv
+import logging
 from datetime import datetime
+from io import StringIO
 
 from fastapi import APIRouter, Query, Response
 from fastapi import status as http_status
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import DbSession
@@ -26,8 +30,10 @@ from app.services.booking_service import (
     validate_booking_type,
     validate_interval,
 )
+from app.services.business_hours_service import validate_within_business_hours
 from app.services.entity_service import EntityConfigurationError
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -47,6 +53,20 @@ def load_booking_type(session: Session, booking_type_id: str) -> BookingType:
 
 def raise_conflict(conflicts: list[dict]) -> None:
     if conflicts:
+        logger.warning(
+            "Booking conflict detected",
+            extra={
+                "conflicts": [
+                    {
+                        "booking_id": c["booking_id"],
+                        "entity_id": c["entity_id"],
+                        "requested_role_key": c["requested_role_key"],
+                        "conflicting_role_key": c["conflicting_role_key"],
+                    }
+                    for c in conflicts
+                ]
+            },
+        )
         raise ApiError(
             409,
             "booking_conflict",
@@ -103,6 +123,82 @@ def list_bookings_route(
     return [serialize_booking(booking) for booking in bookings]
 
 
+def _format_booking_csv_row(booking: dict) -> list[str]:
+    participants = ", ".join(
+        f"{p['entity_name']} ({p['role_label']})" for p in booking["participants"]
+    )
+    return [
+        booking["id"],
+        booking["start_at"],
+        booking["end_at"],
+        booking["status"],
+        booking["booking_type"]["name"] if booking["booking_type"] else "",
+        participants,
+        booking["notes"] or "",
+    ]
+
+
+@router.get("/bookings/export.csv")
+def export_bookings_csv(
+    session: DbSession,
+    range_start: datetime | None = None,
+    range_end: datetime | None = None,
+    entity_type_id: str | None = None,
+    entity_id: str | None = None,
+    role_definition_id: str | None = None,
+    category_id: str | None = None,
+    status: BookingStatus | None = None,
+    search: str | None = Query(default=None, max_length=160),
+    filters: str | None = Query(default=None, description='JSON object, e.g. {"brand":"Ford"}'),
+) -> PlainTextResponse:
+    try:
+        if range_start is not None and range_end is not None:
+            validate_interval(range_start, range_end)
+        else:
+            for value in (range_start, range_end):
+                if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+                    raise BookingValidationError("range timestamps must include a timezone")
+        if entity_type_id is not None:
+            load_entity_type(session, entity_type_id)
+        if entity_id is not None:
+            load_entity(session, entity_id)
+        if (
+            role_definition_id is not None
+            and session.get(RoleDefinition, role_definition_id) is None
+        ):
+            raise ApiError(404, "role_definition_not_found", "RoleDefinition does not exist")
+        if category_id is not None:
+            load_category(session, category_id)
+        bookings = list_bookings(
+            session,
+            range_start=range_start,
+            range_end=range_end,
+            entity_type_id=entity_type_id,
+            entity_id=entity_id,
+            role_definition_id=role_definition_id,
+            category_id=category_id,
+            status=status,
+            search_query=search,
+            field_filters=parse_field_filters(filters),
+        )
+    except (BookingValidationError, EntityConfigurationError) as error:
+        raise ApiError(422, "invalid_booking_filter", str(error)) from error
+
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["id", "start_at", "end_at", "status", "booking_type", "participants", "notes"])
+    for booking in bookings:
+        writer.writerow(_format_booking_csv_row(serialize_booking(booking)))
+
+    content = "﻿" + output.getvalue()
+    output.close()
+    return PlainTextResponse(
+        content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=bookings.csv"},
+    )
+
+
 @router.post(
     "/bookings",
     response_model=BookingRead,
@@ -125,6 +221,7 @@ def create_booking(payload: BookingCreate, session: DbSession) -> dict:
                 end_at=payload.end_at,
             )
         if payload.status is not BookingStatus.CANCELLED:
+            validate_within_business_hours(session, payload.start_at, payload.end_at)
             raise_conflict(
                 find_booking_conflicts(
                     session,
@@ -153,7 +250,17 @@ def create_booking(payload: BookingCreate, session: DbSession) -> dict:
     except BookingValidationError as error:
         session.rollback()
         raise ApiError(422, "invalid_booking", str(error)) from error
-    return serialize_booking(load_booking(session, booking.id))
+    result = serialize_booking(load_booking(session, booking.id))
+    logger.info(
+        "Booking created",
+        extra={
+            "booking_id": result["id"],
+            "start_at": result["start_at"],
+            "end_at": result["end_at"],
+            "status": result["status"],
+        },
+    )
+    return result
 
 
 @router.get("/bookings/{booking_id}", response_model=BookingRead)
@@ -201,6 +308,7 @@ def update_booking(
                 end_at=end_at,
             )
         if target_status is not BookingStatus.CANCELLED:
+            validate_within_business_hours(session, start_at, end_at)
             raise_conflict(
                 find_booking_conflicts(
                     session,
@@ -220,7 +328,17 @@ def update_booking(
     except BookingValidationError as error:
         session.rollback()
         raise ApiError(422, "invalid_booking", str(error)) from error
-    return serialize_booking(load_booking(session, booking.id))
+    result = serialize_booking(load_booking(session, booking.id))
+    logger.info(
+        "Booking updated",
+        extra={
+            "booking_id": result["id"],
+            "start_at": result["start_at"],
+            "end_at": result["end_at"],
+            "status": result["status"],
+        },
+    )
+    return result
 
 
 @router.patch("/bookings/{booking_id}/slot", response_model=BookingRead)
@@ -233,6 +351,8 @@ def update_booking_slot(
     booking = load_booking(session, booking_id)
     try:
         validate_interval(payload.start_at, payload.end_at)
+        if booking.status is not BookingStatus.CANCELLED:
+            validate_within_business_hours(session, payload.start_at, payload.end_at)
         conflicts = check_booking_slot_conflicts(
             session,
             booking,
@@ -246,7 +366,16 @@ def update_booking_slot(
     except BookingValidationError as error:
         session.rollback()
         raise ApiError(422, "invalid_booking", str(error)) from error
-    return serialize_booking(load_booking(session, booking.id))
+    result = serialize_booking(load_booking(session, booking.id))
+    logger.info(
+        "Booking slot updated",
+        extra={
+            "booking_id": result["id"],
+            "start_at": result["start_at"],
+            "end_at": result["end_at"],
+        },
+    )
+    return result
 
 
 @router.post("/bookings/{booking_id}/cancel", response_model=BookingRead)
@@ -255,7 +384,9 @@ def cancel_booking(booking_id: str, session: DbSession) -> dict:
     booking = load_booking(session, booking_id)
     booking.status = BookingStatus.CANCELLED
     session.commit()
-    return serialize_booking(load_booking(session, booking.id))
+    result = serialize_booking(load_booking(session, booking.id))
+    logger.info("Booking cancelled", extra={"booking_id": result["id"]})
+    return result
 
 
 @router.delete("/bookings/{booking_id}", status_code=http_status.HTTP_204_NO_CONTENT)

@@ -193,3 +193,36 @@ export interface BookingConflict {
   start_at: string;
   end_at: string;
 }
+
+export interface BusinessHours {
+  id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_closed: boolean;
+}
+
+export interface BusinessHoursInput {
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_closed: boolean;
+}
+
+export interface AvailabilityFilters {
+  start_at: string;
+  end_at: string;
+  role_definition_id?: string;
+  entity_type_id?: string;
+  category_id?: string;
+  filters?: Record<string, unknown>;
+  exclude_booking_id?: string;
+}
+
+export interface OccupancyResponse {
+  entity_id: string;
+  range_start: string;
+  range_end: string;
+  bookings: Booking[];
+  free_gaps: Array<{ start_at: string; end_at: string }>;
+}

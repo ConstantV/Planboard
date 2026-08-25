@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { listBookings } from "./api/bookings";
 import { listBookingTypes } from "./api/bookingTypes";
+import { listBusinessHours } from "./api/businessHours";
 import { listEntityTypes, listRoleDefinitions } from "./api/configuration";
 import { listCategories, listEntities } from "./api/entities";
 import { getHealth } from "./api/health";
@@ -27,6 +28,11 @@ vi.mock("./api/bookingTypes", () => ({
   updateBookingType: vi.fn(),
   deactivateBookingType: vi.fn(),
   getBookingType: vi.fn(),
+}));
+
+vi.mock("./api/businessHours", () => ({
+  listBusinessHours: vi.fn(),
+  updateBusinessHours: vi.fn(),
 }));
 
 vi.mock("./api/configuration", () => ({
@@ -64,6 +70,7 @@ vi.mock("./components/ScheduleCalendar", () => ({
 const mockedGetHealth = vi.mocked(getHealth);
 const mockedListBookings = vi.mocked(listBookings);
 const mockedListBookingTypes = vi.mocked(listBookingTypes);
+const mockedListBusinessHours = vi.mocked(listBusinessHours);
 const mockedListEntityTypes = vi.mocked(listEntityTypes);
 const mockedListRoleDefinitions = vi.mocked(listRoleDefinitions);
 const mockedListEntities = vi.mocked(listEntities);
@@ -82,6 +89,7 @@ describe("App", () => {
     mockedGetHealth.mockReset().mockResolvedValue({ status: "ok", service: "planboard-api" });
     mockedListBookings.mockReset().mockResolvedValue([]);
     mockedListBookingTypes.mockReset().mockResolvedValue([]);
+    mockedListBusinessHours.mockReset().mockResolvedValue([]);
     mockedListEntityTypes.mockReset().mockResolvedValue([]);
     mockedListRoleDefinitions.mockReset().mockResolvedValue([]);
     mockedListEntities.mockReset().mockResolvedValue([]);

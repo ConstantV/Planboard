@@ -31,6 +31,8 @@ export interface CalendarEventChange {
 export function ScheduleCalendar({
   events,
   editable = true,
+  slotMinTime,
+  slotMaxTime,
   onRangeChange,
   onSelectSlot,
   onEventClick,
@@ -39,6 +41,8 @@ export function ScheduleCalendar({
 }: {
   events: EventInput[];
   editable?: boolean;
+  slotMinTime?: string;
+  slotMaxTime?: string;
   onRangeChange?: (range: CalendarRange) => void;
   onSelectSlot?: (slot: CalendarSlot) => void;
   onEventClick?: (bookingId: string) => void;
@@ -87,6 +91,8 @@ export function ScheduleCalendar({
       firstDay={1}
       nowIndicator
       height="auto"
+      slotMinTime={slotMinTime}
+      slotMaxTime={slotMaxTime}
       events={events}
       editable={editable}
       datesSet={handleDatesSet}

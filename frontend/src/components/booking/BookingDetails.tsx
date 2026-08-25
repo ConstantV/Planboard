@@ -47,6 +47,7 @@ export function BookingDetails({
                   <span
                     className="color-dot"
                     style={{ backgroundColor: participant.resolved_color }}
+                    aria-hidden="true"
                   />
                   <strong>{participant.entity_name}</strong>
                   <small>

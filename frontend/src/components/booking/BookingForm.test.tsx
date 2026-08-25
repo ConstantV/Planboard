@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../../api/client";
@@ -10,7 +11,8 @@ import type {
   Entity,
   RoleDefinition,
 } from "../../types/api";
-import { BookingForm } from "./BookingForm";
+import { BookingForm, type BookingFormProps } from "./BookingForm";
+import { initialBookingFormValues } from "./booking-form";
 
 const timestamp = "2026-08-24T08:00:00Z";
 
@@ -71,6 +73,17 @@ const baseProps = {
   onCancel: vi.fn(),
 };
 
+function TestBookingForm(
+  props: Omit<BookingFormProps, "values" | "onChange"> & {
+    initialValues?: ReturnType<typeof initialBookingFormValues>;
+  },
+) {
+  const [values, setValues] = useState(
+    props.initialValues ?? initialBookingFormValues(props.booking),
+  );
+  return <BookingForm {...props} values={values} onChange={setValues} />;
+}
+
 async function selectSalonScope(user: ReturnType<typeof userEvent.setup>) {
   await user.selectOptions(screen.getByLabelText("Workflow"), "hair_salon");
 }
@@ -81,7 +94,7 @@ describe("BookingForm", () => {
   it("toont alleen de rollen van de gekozen workflow en valideert verplichte rollen", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn<(input: BookingInput) => void>();
-    render(<BookingForm {...baseProps} onSubmit={onSubmit} />);
+    render(<TestBookingForm {...baseProps} onSubmit={onSubmit} />);
 
     await selectSalonScope(user);
     expect(screen.getByLabelText(/^Klant/)).toBeInTheDocument();
@@ -101,7 +114,7 @@ describe("BookingForm", () => {
   it("stelt de voorgestelde duur voor bij typekeuze en accepteert een afwijkende eindtijd", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn<(input: BookingInput) => void>();
-    render(<BookingForm {...baseProps} onSubmit={onSubmit} />);
+    render(<TestBookingForm {...baseProps} onSubmit={onSubmit} />);
 
     await selectSalonScope(user);
     await user.type(screen.getByLabelText("Start"), "2026-09-01T10:00");
@@ -132,7 +145,7 @@ describe("BookingForm", () => {
   it("handhaaft de vaste duur door de eindtijd te vergrendelen en herberekenen", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn<(input: BookingInput) => void>();
-    render(<BookingForm {...baseProps} onSubmit={onSubmit} />);
+    render(<TestBookingForm {...baseProps} onSubmit={onSubmit} />);
 
     await selectSalonScope(user);
     await user.type(screen.getByLabelText("Start"), "2026-09-01T10:00");
@@ -178,7 +191,7 @@ describe("BookingForm", () => {
         },
       ],
     );
-    render(<BookingForm {...baseProps} error={conflictError} onSubmit={vi.fn()} />);
+    render(<TestBookingForm {...baseProps} error={conflictError} onSubmit={vi.fn()} />);
 
     expect(screen.getByText("Tijdslot bezet")).toBeInTheDocument();
     expect(screen.getByText(/Fatima \(hairdresser\)/)).toBeInTheDocument();
@@ -215,7 +228,7 @@ describe("BookingForm", () => {
       ],
     };
     const onSubmit = vi.fn<(input: BookingInput) => void>();
-    render(<BookingForm {...baseProps} booking={booking} onSubmit={onSubmit} />);
+    render(<TestBookingForm {...baseProps} booking={booking} onSubmit={onSubmit} />);
 
     expect((screen.getByLabelText("Workflow") as HTMLSelectElement).value).toBe("hair_salon");
     expect((screen.getByLabelText("Afspraaktype") as HTMLSelectElement).value).toBe("bt-wassen");
@@ -234,11 +247,12 @@ describe("BookingForm", () => {
   });
 
   it("vult een geselecteerd tijdslot vooraf in bij aanmaken", () => {
+    const slotStart = new Date(2026, 8, 1, 9, 30);
+    const slotEnd = new Date(2026, 8, 1, 10, 15);
     render(
-      <BookingForm
+      <TestBookingForm
         {...baseProps}
-        slotStart={new Date(2026, 8, 1, 9, 30)}
-        slotEnd={new Date(2026, 8, 1, 10, 15)}
+        initialValues={initialBookingFormValues(undefined, slotStart, slotEnd)}
         onSubmit={vi.fn()}
       />,
     );

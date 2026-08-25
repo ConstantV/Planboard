@@ -301,7 +301,7 @@ def test_scenario_conflicts_report_every_exclusive_resource(
     for order, entity_type in enumerate(types.values()):
         entity = create_entity(api_client, entity_type, f"{entity_type['name']} 1")
         participants.append(participant(entity, entity_type, order))
-    start_at = datetime(2026, 9, 5, 10, tzinfo=UTC)
+    start_at = datetime(2026, 9, 7, 10, tzinfo=UTC)
 
     assert (
         create_booking(
@@ -349,7 +349,7 @@ def test_booking_filters_share_one_combinable_result_set(api_client: TestClient)
         category_id=tools["id"],
     )
     rental_role = role(types["rental_item"])
-    start_at = datetime(2026, 9, 6, 8, tzinfo=UTC)
+    start_at = datetime(2026, 9, 8, 8, tzinfo=UTC)
     first = create_booking(
         api_client,
         [
@@ -403,6 +403,34 @@ def test_booking_filters_share_one_combinable_result_set(api_client: TestClient)
         ).json()
         == []
     )
+
+
+def test_bookings_csv_export(api_client: TestClient) -> None:
+    _types, participants = salon_setup(api_client)
+    start_at = datetime(2026, 9, 7, 10, tzinfo=UTC)
+    booking = create_booking(
+        api_client,
+        participants,
+        start_at,
+        start_at + timedelta(hours=1),
+        notes="Knippen",
+    ).json()
+
+    response = api_client.get(
+        "/api/bookings/export.csv",
+        params={
+            "range_start": start_at.isoformat(),
+            "range_end": (start_at + timedelta(hours=2)).isoformat(),
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    body = response.text
+    assert body.startswith("﻿")
+    lines = body.splitlines()
+    assert lines[0].lstrip("﻿") == "id,start_at,end_at,status,booking_type,participants,notes"
+    assert booking["id"] in lines[1]
+    assert "Knippen" in lines[1]
 
 
 def test_booking_filter_and_interval_errors_are_structured(api_client: TestClient) -> None:
@@ -505,7 +533,7 @@ def test_slot_update_rejects_fixed_duration_resize(api_client: TestClient) -> No
         for booking_type in api_client.get("/api/booking-types?booking_scope=hair_salon").json()
         if booking_type["key"] == "knippen"
     )
-    start_at = datetime(2026, 9, 12, 10, tzinfo=UTC)
+    start_at = datetime(2026, 9, 14, 10, tzinfo=UTC)
     booking = create_booking(
         api_client,
         participants,

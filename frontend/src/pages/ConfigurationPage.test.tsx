@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../api/client";
 import { createBookingType, listBookingTypes } from "../api/bookingTypes";
+import { listBusinessHours } from "../api/businessHours";
 import {
   createFieldDefinition, installPreset, listEntityTypes, listRoleDefinitions,
 } from "../api/configuration";
-import type { BookingType, EntityType, FieldDefinition } from "../types/api";
+import type { BookingType, BusinessHours, EntityType, FieldDefinition } from "../types/api";
 import { ConfigurationPage } from "./ConfigurationPage";
 
 vi.mock("../api/configuration", async (importOriginal) => {
@@ -26,6 +27,10 @@ vi.mock("../api/bookingTypes", () => ({
   deactivateBookingType: vi.fn(),
   getBookingType: vi.fn(),
 }));
+vi.mock("../api/businessHours", () => ({
+  listBusinessHours: vi.fn(),
+  updateBusinessHours: vi.fn(),
+}));
 const timestamp = "2026-08-23T12:00:00Z";
 const bookingType: BookingType = {
   id: "btype-1", key: "knippen", name: "Knippen", booking_scope: "hair_salon",
@@ -34,6 +39,13 @@ const bookingType: BookingType = {
 };
 const entityType: EntityType = { id: "type-1", key: "customer", name: "Klant", color: "#112233", is_active: true, fields: [], roles: [], created_at: timestamp, updated_at: timestamp };
 const createdField: FieldDefinition = { id: "field-1", entity_type_id: "type-1", key: "segment", label: "Segment", data_type: "select", is_required: true, is_searchable: true, is_filterable: true, display_order: 0, select_options: ["VIP", "Regulier"], is_active: true, created_at: timestamp, updated_at: timestamp };
+const businessHours: BusinessHours[] = Array.from({ length: 7 }, (_, dayOfWeek) => ({
+  id: `bh-${dayOfWeek}`,
+  day_of_week: dayOfWeek,
+  start_time: dayOfWeek < 5 ? "09:00:00" : "00:00:00",
+  end_time: dayOfWeek < 5 ? "18:00:00" : "00:00:00",
+  is_closed: dayOfWeek >= 5,
+}));
 
 describe("ConfigurationPage", () => {
   beforeEach(() => {
@@ -41,6 +53,7 @@ describe("ConfigurationPage", () => {
     vi.mocked(listEntityTypes).mockResolvedValue([entityType]);
     vi.mocked(listRoleDefinitions).mockResolvedValue([]);
     vi.mocked(listBookingTypes).mockResolvedValue([bookingType]);
+    vi.mocked(listBusinessHours).mockResolvedValue(businessHours);
   });
 
   it("maakt een configureerbaar keuzelijstveld aan", async () => {

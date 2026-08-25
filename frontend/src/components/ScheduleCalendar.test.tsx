@@ -14,6 +14,8 @@ const mockRevert = vi.fn();
 vi.mock("@fullcalendar/react", () => ({
   default: ({
     editable,
+    slotMinTime,
+    slotMaxTime,
     eventDrop,
     eventResize,
     datesSet,
@@ -21,6 +23,8 @@ vi.mock("@fullcalendar/react", () => ({
     eventClick,
   }: {
     editable?: boolean;
+    slotMinTime?: string;
+    slotMaxTime?: string;
     eventDrop?: (arg: {
       event: { id: string; start: Date; end: Date };
       revert: () => void;
@@ -33,7 +37,12 @@ vi.mock("@fullcalendar/react", () => ({
     select?: (arg: { start: Date; end: Date; view: { calendar: { unselect: () => void } } }) => void;
     eventClick?: (arg: { event: { id: string } }) => void;
   }) => (
-    <div data-testid="fullcalendar" data-editable={String(editable)}>
+    <div
+      data-testid="fullcalendar"
+      data-editable={String(editable)}
+      data-slot-min={slotMinTime}
+      data-slot-max={slotMaxTime}
+    >
       <button
         type="button"
         onClick={() =>
@@ -225,5 +234,19 @@ describe("ScheduleCalendar", () => {
       <ScheduleCalendar events={[]} editable={false} onEventDrop={mockDrop} onEventResize={mockResize} />,
     );
     expect(screen.getByTestId("fullcalendar").dataset.editable).toBe("false");
+  });
+
+  it("forwards configured business-hours boundaries to the calendar", () => {
+    render(
+      <ScheduleCalendar
+        events={[]}
+        slotMinTime="08:00"
+        slotMaxTime="19:00"
+        onEventDrop={mockDrop}
+        onEventResize={mockResize}
+      />,
+    );
+    expect(screen.getByTestId("fullcalendar").dataset.slotMin).toBe("08:00");
+    expect(screen.getByTestId("fullcalendar").dataset.slotMax).toBe("19:00");
   });
 });

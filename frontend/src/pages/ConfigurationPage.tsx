@@ -6,6 +6,7 @@ import {
   listBookingTypes,
   updateBookingType,
 } from "../api/bookingTypes";
+import { listBusinessHours, updateBusinessHours } from "../api/businessHours";
 import {
   createEntityType,
   createFieldDefinition,
@@ -24,6 +25,7 @@ import { MutationFeedback } from "../components/MutationFeedback";
 import { EmptyState, ErrorState, LoadingState } from "../components/PageState";
 import { PageHeader } from "../components/PageHeader";
 import { BookingTypeForm } from "../components/management/BookingTypeForm";
+import { BusinessHoursForm } from "../components/management/BusinessHoursForm";
 import { EntityTypeForm } from "../components/management/EntityTypeForm";
 import { FieldDefinitionForm } from "../components/management/FieldDefinitionForm";
 import { RoleDefinitionForm } from "../components/management/RoleDefinitionForm";
@@ -32,6 +34,7 @@ import { useMutationFeedback } from "../hooks/useMutationFeedback";
 import type {
   BookingType,
   BookingTypeInput,
+  BusinessHoursInput,
   EntityTypeInput,
   FieldDefinition,
   FieldDefinitionInput,
@@ -49,12 +52,13 @@ const presets: { key: PresetKey; name: string; description: string }[] = [
 
 export function ConfigurationPage() {
   const loader = useCallback(async () => {
-    const [entityTypes, roles, bookingTypes] = await Promise.all([
+    const [entityTypes, roles, bookingTypes, businessHours] = await Promise.all([
       listEntityTypes(),
       listRoleDefinitions(),
       listBookingTypes(undefined, true),
+      listBusinessHours(),
     ]);
-    return { entityTypes, roles, bookingTypes };
+    return { entityTypes, roles, bookingTypes, businessHours };
   }, []);
   const { data, error, loading, reload } = useApiResource(loader);
   const mutation = useMutationFeedback();
@@ -63,6 +67,7 @@ export function ConfigurationPage() {
   const [editingField, setEditingField] = useState<FieldDefinition | "new" | null>(null);
   const [editingRole, setEditingRole] = useState<RoleDefinition | "new" | null>(null);
   const [editingBookingType, setEditingBookingType] = useState<BookingType | "new" | null>(null);
+  const [editingBusinessHours, setEditingBusinessHours] = useState(false);
 
   const selectedType =
     data?.entityTypes.find((entityType) => entityType.id === selectedTypeId) ??
@@ -116,6 +121,11 @@ export function ConfigurationPage() {
       editingBookingType === "new" ? "Afspraaktype toegevoegd." : "Afspraaktype bijgewerkt.",
     );
     if (result) setEditingBookingType(null);
+  };
+
+  const saveBusinessHours = async (input: BusinessHoursInput[]) => {
+    const result = await mutate(() => updateBusinessHours(input), "Openingstijden bijgewerkt.");
+    if (result) setEditingBusinessHours(false);
   };
 
   return (
@@ -179,6 +189,52 @@ export function ConfigurationPage() {
           </aside>
 
           <section className="management-content">
+            <div className="panel editor-panel">
+              <div className="section-heading">
+                <div><p className="eyebrow">Planning</p><h2>Openingstijden</h2></div>
+                {!editingBusinessHours && (
+                  <button
+                    className="button button--secondary"
+                    type="button"
+                    onClick={() => setEditingBusinessHours(true)}
+                  >
+                    Bewerken
+                  </button>
+                )}
+              </div>
+              {editingBusinessHours ? (
+                <BusinessHoursForm
+                  hours={data.businessHours}
+                  saving={mutation.saving}
+                  onSubmit={(input) => void saveBusinessHours(input)}
+                  onCancel={() => setEditingBusinessHours(false)}
+                />
+              ) : (
+                <ul className="definition-list">
+                  {data.businessHours
+                    .sort((a, b) => a.day_of_week - b.day_of_week)
+                    .map((item) => (
+                      <li key={item.id} className="definition-row">
+                        <div>
+                          <strong>{
+                            ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag"][
+                              item.day_of_week
+                            ]
+                          }</strong>
+                        </div>
+                        <div className="chip-row">
+                          {item.is_closed ? (
+                            <span className="chip">Gesloten</span>
+                          ) : (
+                            <span className="chip">{item.start_time.slice(0, 5)} – {item.end_time.slice(0, 5)}</span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
+
             {showTypeForm === "create" && (
               <div className="panel editor-panel">
                 <div className="section-heading"><div><p className="eyebrow">Nieuw</p><h2>EntiteitType aanmaken</h2></div></div>

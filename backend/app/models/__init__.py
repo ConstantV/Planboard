@@ -1,5 +1,6 @@
 from app.models.booking import Booking, BookingParticipant, BookingStatus
 from app.models.booking_type import BookingType, DurationMode
+from app.models.business_hours import BusinessHours
 from app.models.entity import (
     Entity,
     EntityFieldValue,
@@ -15,6 +16,7 @@ __all__ = [
     "BookingParticipant",
     "BookingStatus",
     "BookingType",
+    "BusinessHours",
     "DurationMode",
     "Entity",
     "EntityCategory",

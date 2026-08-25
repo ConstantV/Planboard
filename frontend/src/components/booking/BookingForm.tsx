@@ -6,13 +6,17 @@ import type {
   Booking,
   BookingConflict,
   BookingInput,
-  BookingParticipantInput,
-  BookingStatus,
   BookingType,
   Entity,
   RoleDefinition,
 } from "../../types/api";
-import { addMinutes, localInputToIso, toLocalInputValue } from "../../utils/datetime";
+import {
+  buildBookingInput,
+  patchBookingFormValues,
+  scopeBookingFormValues,
+  type BookingFormValues,
+  validateBookingFormValues,
+} from "./booking-form";
 import {
   FormActions,
   FormField,
@@ -20,79 +24,33 @@ import {
   TextInput,
 } from "../FormControls";
 
-export interface BookingFormValues {
-  scope: string;
-  bookingTypeId: string;
-  start: string;
-  end: string;
-  status: BookingStatus;
-  notes: string;
-  selections: Record<string, string[]>;
-}
+export type { BookingFormValues } from "./booking-form";
 
-function initialValues(booking: Booking | undefined, slotStart?: Date, slotEnd?: Date): BookingFormValues {
-  const selections: Record<string, string[]> = {};
-  if (booking) {
-    for (const participant of booking.participants) {
-      selections[participant.role_definition_id] = [
-        ...(selections[participant.role_definition_id] ?? []),
-        participant.entity_id,
-      ];
-    }
-    return {
-      scope: booking.participants[0]?.booking_scope ?? "",
-      bookingTypeId: booking.booking_type?.id ?? "",
-      start: toLocalInputValue(new Date(booking.start_at)),
-      end: toLocalInputValue(new Date(booking.end_at)),
-      status: booking.status,
-      notes: booking.notes ?? "",
-      selections,
-    };
-  }
-  return {
-    scope: "",
-    bookingTypeId: "",
-    start: slotStart ? toLocalInputValue(slotStart) : "",
-    end: slotEnd ? toLocalInputValue(slotEnd) : "",
-    status: "confirmed",
-    notes: "",
-    selections,
-  };
-}
-
-function applyDuration(start: string, minutes: number): string {
-  const startDate = new Date(start);
-  return Number.isNaN(startDate.getTime())
-    ? ""
-    : toLocalInputValue(addMinutes(startDate, minutes));
-}
-
-export function BookingForm({
-  booking,
-  slotStart,
-  slotEnd,
-  roles,
-  bookingTypes,
-  entities,
-  error,
-  saving,
-  onSubmit,
-  onCancel,
-}: {
+export interface BookingFormProps {
+  values: BookingFormValues;
   booking?: Booking;
-  slotStart?: Date;
-  slotEnd?: Date;
   roles: RoleDefinition[];
   bookingTypes: BookingType[];
   entities: Entity[];
   error: ApiError | null;
   saving: boolean;
+  onChange: (values: BookingFormValues) => void;
   onSubmit: (input: BookingInput) => void;
   onCancel: () => void;
-}) {
-  const [values, setValues] = useState<BookingFormValues>(() =>
-    initialValues(booking, slotStart, slotEnd),
-  );
+}
+
+export function BookingForm({
+  values,
+  booking,
+  roles,
+  bookingTypes,
+  entities,
+  error,
+  saving,
+  onChange,
+  onSubmit,
+  onCancel,
+}: BookingFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const scopes = useMemo(
@@ -114,77 +72,23 @@ export function BookingForm({
   const isFixed = selectedType?.duration_mode === "fixed";
 
   const patch = (changes: Partial<BookingFormValues>) => {
-    setValues((current) => {
-      const next = { ...current, ...changes };
-      const nextType = scopeBookingTypes.find((type) => type.id === next.bookingTypeId);
-      if (nextType?.default_duration_minutes && ("start" in changes || "bookingTypeId" in changes)) {
-        next.end = applyDuration(next.start, nextType.default_duration_minutes);
-      }
-      return next;
-    });
+    onChange(patchBookingFormValues(values, changes, bookingTypes));
     setErrors({});
   };
 
   const changeScope = (scope: string) => {
-    setValues((current) => {
-      const nextType = bookingTypes.find((type) => type.id === current.bookingTypeId);
-      return {
-        ...current,
-        scope,
-        bookingTypeId: nextType?.booking_scope === scope ? current.bookingTypeId : "",
-        selections: {},
-      };
-    });
+    onChange(scopeBookingFormValues(values, scope, bookingTypes));
     setErrors({});
-  };
-
-  const validate = (): Record<string, string> => {
-    const fieldErrors: Record<string, string> = {};
-    if (!values.scope) fieldErrors.scope = "Kies een workflow.";
-    if (!values.start) fieldErrors.start = "Vul een starttijd in.";
-    if (!values.end) fieldErrors.end = "Vul een eindtijd in.";
-    if (values.start && values.end && new Date(values.end) <= new Date(values.start)) {
-      fieldErrors.end = "De eindtijd moet na de starttijd liggen.";
-    }
-    if (isFixed && selectedType?.default_duration_minutes && values.end) {
-      const expected = applyDuration(values.start, selectedType.default_duration_minutes);
-      if (values.end !== expected) {
-        fieldErrors.end = `${selectedType.name} duurt altijd ${selectedType.default_duration_minutes} minuten.`;
-      }
-    }
-    for (const role of scopeRoles) {
-      if (role.is_required && (values.selections[role.id] ?? []).length === 0) {
-        fieldErrors[`role-${role.id}`] = `${role.label} is verplicht.`;
-      }
-    }
-    return fieldErrors;
   };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const fieldErrors = validate();
+    const fieldErrors = validateBookingFormValues(values, scopeRoles, selectedType);
     if (Object.keys(fieldErrors).length > 0) {
       setErrors(fieldErrors);
       return;
     }
-    const participants: BookingParticipantInput[] = [];
-    for (const role of scopeRoles) {
-      for (const [index, entityId] of (values.selections[role.id] ?? []).entries()) {
-        participants.push({
-          entity_id: entityId,
-          role_definition_id: role.id,
-          display_order: role.display_order * 100 + index,
-        });
-      }
-    }
-    onSubmit({
-      participants,
-      start_at: localInputToIso(values.start),
-      end_at: localInputToIso(values.end),
-      status: values.status,
-      notes: values.notes.trim() || null,
-      booking_type_id: values.bookingTypeId || null,
-    });
+    onSubmit(buildBookingInput(values, scopeRoles));
   };
 
   const conflicts =
@@ -283,7 +187,7 @@ export function BookingForm({
         <SelectInput
           aria-label="Status"
           value={values.status}
-          onChange={(event) => patch({ status: event.target.value as BookingStatus })}
+          onChange={(event) => patch({ status: event.target.value as BookingFormValues["status"] })}
         >
           <option value="confirmed">Bevestigd</option>
           <option value="tentative">Voorlopig</option>

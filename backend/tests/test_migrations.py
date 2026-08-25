@@ -9,6 +9,7 @@ EXPECTED_TABLES = {
     "booking_participants",
     "booking_types",
     "bookings",
+    "business_hours",
     "entities",
     "entity_categories",
     "entity_field_values",

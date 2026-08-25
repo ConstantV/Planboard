@@ -10,7 +10,19 @@ export function toLocalInputValue(date: Date): string {
 
 /** Convert a `datetime-local` input value to a timezone-aware ISO 8601 string. */
 export function localInputToIso(value: string): string {
-  return new Date(value).toISOString();
+  const [datePart, timePart] = value.split("T");
+  if (!datePart || !timePart || Number.isNaN(new Date(value).getTime())) {
+    return new Date(value).toISOString();
+  }
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  const localDate = new Date(year, month - 1, day, hour, minute);
+  const offsetMinutes = -localDate.getTimezoneOffset();
+  const absOffset = Math.abs(offsetMinutes);
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, "0");
+  const offsetMins = String(absOffset % 60).padStart(2, "0");
+  return `${datePart}T${timePart}:00${sign}${offsetHours}:${offsetMins}`;
 }
 
 export function addMinutes(date: Date, minutes: number): Date {
